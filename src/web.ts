@@ -1,10 +1,9 @@
 
-import { opine, OpineRequest, request, json, text } from "https://deno.land/x/opine@2.3.3/mod.ts";
+import { opine, OpineRequest } from "https://deno.land/x/opine@2.3.3/mod.ts";
 import { getArgs } from './args.ts'
 import { logEvent } from "./log.ts";
-import { Session, signin } from "./iam.ts";
+import { Session } from "./iam.ts";
 import { SWebsocket, websocketMessageHandler } from "./websocket.ts";
-import { reset } from "https://deno.land/std@0.153.0/fmt/colors.ts";
 import { processQueries } from "./process.ts";
 import { readAll } from "https://deno.land/std@0.120.0/streams/conversion.ts";
 
@@ -49,10 +48,7 @@ export function web() {
   });
 
   app.post("/sql", async (req, res) => {
-
     const body = new TextDecoder().decode(await readAll(req.raw));
-
-    
 
     const authorization = req.headers.get('authorization');
     if (!authorization) {

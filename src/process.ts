@@ -281,12 +281,6 @@ export const processQuery = async (options: {
         return { result: null };
     }
 
-    // if (query === 'INFO FOR NS') {
-    //     if (!ns) throw 'TODO NS NOT IN USE';
-    //     const result = await ns.infoForNS();
-    //     return { result }
-    // }
-
     logEvent("error", `process.ts processQuery`, ` could not process ${query}`);
     console.log(query);
     throw Error('could not process')

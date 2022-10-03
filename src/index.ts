@@ -6,7 +6,7 @@
 // deno run --allow-all --watch --allow-hrtime --unstable index.ts start --user root --pass root --log debug --bind 0.0.0.0:8080 file://test
 
 // Do run official surreal
-// surreal start --user root --pass rouansrdb1234 --log full --bind 0.0.0.0:8080 file://data.srdb.db
+// surreal start --user root --pass pass --log full --bind 0.0.0.0:8080 file://data.srdb.db
 
 
 

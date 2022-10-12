@@ -36,6 +36,10 @@ export function web() {
     next();
   });
 
+  app.get('/', async (req, res) => {
+    res.json({ running : true })
+  })
+
   app.get("/rpc", async (req, res, next) => {
     if (req.headers.get("upgrade") === "websocket") {
       const sock = req.upgrade();

@@ -10,14 +10,14 @@ export interface TestConfig {
 
 export const configs: TestConfig[] = [{
     id: 'SurrealDB Official',
-    url: 'http://0.0.0.0:8000',
+    url: 'http://localhost:8000',
     user: 'root',
     pass: 'root',
     NS: 'testing',
     DB: 'testing'
 }, {
     id: 'Rouan DenoDB',
-    url: 'http://0.0.0.0:8080',
+    url: 'http://localhost:8080',
     user: 'root',
     pass: 'root',
     NS: 'testing',

@@ -14,8 +14,11 @@ import { websockettest } from "./test_websocket.ts";
 
 export const args = parse(Deno.args) as Args;
 
+/////// UNIT TESTS
+unittests();
 
-await delay(250); // wait a little before running the tests
+
+await delay(250); // wait a little before running the end to end tests
 
 let configid = parseInt(args._[0]) || 0;
 
@@ -32,9 +35,7 @@ logEvent("log", "main::test2", `${configs[configid].id} httptest`);
 await httptest(configs[configid]);
 
 
-/////// TESTS
 
-unittests();
 
 
 

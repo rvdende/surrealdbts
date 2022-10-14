@@ -1,8 +1,10 @@
 import { Session } from "./iam.ts";
+import { kv } from "./index.ts";
 import { KVStorageEngine, initializeStorage } from "./kv_storage.ts";
 import { KVTable } from "./kv_table.ts";
 import { logEvent } from "./log.ts";
 import { NS } from './ns.ts';
+import { processFields } from "./process_fields.ts";
 
 export interface KVConstructorOptions {
     storageArgs: string
@@ -145,13 +147,11 @@ export class KV {
 
     async getTable(session: Session, tableName: string) {
         const tbInfo = await this.infoForTable({ tb: tableName, ns: session.ns, db: session.db });
-        const tbobj = new KVTable({tbInfo, tableName, session});
+        const tbobj = new KVTable({ tbInfo, tableName, session });
         return tbobj;
     }
 
     async setTB({ ns, db, tb, tbInfo }: { ns: string, db: string, tb: string, tbInfo: iTBinfo }) {
-        const key = `_tb:${ns}:${db}:${tb}`;
-        // console.log({key, tbInfo});
         await this.storage.set(`_tb:${ns}:${db}:${tb}`, tbInfo);
         return null;
     }
@@ -161,7 +161,7 @@ export class KV {
 
         // create tb if does not exist.
         if (!tbInfo) {
-            await this.defineTB({tb, db, ns, definition: `DEFINE DATABASE ${db}`});
+            await this.defineTB({ tb, db, ns, definition: `DEFINE DATABASE ${db}` });
             tbInfo = await this.storage.get<iTBinfo>(`_tb:${ns}:${db}:${tb}`);
         }
 
@@ -182,7 +182,7 @@ export class KV {
     async removeNS({ ns }: { ns: string }) {
         logEvent('warn', 'kv.ts', `REMOVE NAMESPACE ${ns}`)
 
-        let kv = await this.infoForKV();
+        const kv = await this.infoForKV();
         if (!kv) return null;
 
         const nsInfo = await this.storage.get<iNSinfo>(`_ns:${ns}`)
@@ -206,7 +206,13 @@ export class KV {
         await this.storage.set('_kv', kv);
     }
 
-    async createContent({ targets, data, ns, db }: { targets: string, data: any, ns: string, db: string }) {
+    async createContent({ targets, data, ns, db, session }: {
+        targets: string,
+        data: any,
+        ns: string,
+        db: string,
+        session: Session
+    }) {
         const { id, tb } = parseIdFromThing(targets);
 
         // CREATE TABLE AND ADD ROW ID START
@@ -222,8 +228,21 @@ export class KV {
         await this.setTB({ ns, db, tb, tbInfo });
         // CREATE TABLE AND ADD ROW ID END
 
+        // PROCESS FIELDS, INDEXES AND EVENTS...
 
-        const output = { ...{ id: `${tb}:${id}` }, ...data }
+        const kvtable = await kv.getTable(session, tb);
+
+        const processedFieldsData = await processFields({
+            session,
+            dataIn: data,
+            kvtable
+        }).catch((err) => {
+            logEvent('trace', 'process.ts create set', err.message);
+            throw err;
+        })
+
+
+        const output = { ...{ id: `${tb}:${id}` }, ...processedFieldsData }
         await this.storage.set(`_row:${ns}:${db}:${tb}:${id}`, output);
         return output;
     }

@@ -1,8 +1,9 @@
 import { Session } from "./iam.ts";
 import { kv } from "./index.ts";
+import { parseIdFromThing } from "./kv.ts";
 import { logEvent } from "./log.ts";
 import { NS } from "./ns.ts";
-import { extractJSON, processFields } from "./process_fields.ts";
+import { extractJSON } from "./process_fields.ts";
 import { clone } from "./utils.ts";
 
 export const processQueries = async (options: {
@@ -80,10 +81,12 @@ export const processQuery = async (options: {
 
     }
 
+    // https://surrealdb.com/docs/surrealql/statements/define
     if (statement[0] === 'DEFINE') {
         const name = statement[2];
         const definition = query;
 
+        // DEFINE NAMESPACE
         if (statement[1] === 'NAMESPACE') {
             logEvent("trace", "process.ts::define::field", "handing DEFINE NAMESPACE")
             const result = await kv.defineNS({ ns: name, definition });
@@ -92,7 +95,7 @@ export const processQuery = async (options: {
             return { result }
         }
 
-        // define::database
+        // DEFINE DATABASE
         if (['DATABASE', 'DB'].indexOf(statement[1]) >= 0) {
             logEvent("trace", "process.ts::define::field", "handing DEFINE DATABASE || DB")
             if (!options.session.ns) throw new Error('Namespace not specified.')
@@ -101,7 +104,22 @@ export const processQuery = async (options: {
             return { result }
         }
 
-        // define::table
+        // DEFINE LOGIN
+        if (statement[1] === 'LOGIN') {
+            throw Error('not implemented yet.');
+        }
+
+        // DEFINE TOKEN
+        if (statement[1] === 'TOKEN') {
+            throw Error('not implemented yet.');
+        }
+
+        // DEFINE SCOPE
+        if (statement[1] === 'SCOPE') {
+            throw Error('not implemented yet.');
+        }
+
+        // DEFINE TABLE
         if (statement[1] === 'TABLE') {
             logEvent("trace", "process.ts::define::field", "handing DEFINE TABLE")
             if (!options.session.ns) throw Error('Select namespace first.');
@@ -111,7 +129,12 @@ export const processQuery = async (options: {
             return { result }
         }
 
-        // define::field
+        // DEFINE EVENT
+        if (statement[1] === 'EVENT') {
+            throw Error('not implemented yet.');
+        }
+
+        // DEFINE FIELD
         if (statement[1] === 'FIELD') {
             logEvent("trace", "process.ts::define::field", "handing DEFINE FIELD")
             if (!options.session.ns) throw Error('Select namespace first.');
@@ -131,18 +154,42 @@ export const processQuery = async (options: {
             logEvent("trace", `process.define.field`, `${query} ${JSON.stringify(result)}`);
             return { result }
         }
+
+        // DEFINE INDEX
+        if (statement[1] === 'INDEX') {
+            logEvent("trace", "process.ts::define::index", "handing DEFINE INDEX");
+            if (!options.session.ns) throw Error('Select namespace first.');
+            if (!options.session.db) throw Error('Select db first.');
+            const tableIndex = (statement[4] === "TABLE") ? 5 : 4;
+            const tableName: string = statement[tableIndex];
+            // removes the "TABLE keyword from the definition same as surrealdb.
+            const definition = (statement[4] === "TABLE") ? query.replace(" TABLE ", " ") : query;
+            const table = await kv.getTable(options.session, tableName)
+
+            const result = await table.define({
+                type: 'ix',
+                fieldName: statement[2],
+                definition
+            })
+
+            logEvent("trace", `process.define.index`, `${query} ${JSON.stringify(result)}`);
+            return { result }
+        }
+
         logEvent("error", "process.ts::define::field")
     }
 
     if (statement[0] === 'INFO') {
-
+        // INFO FOR
         if (statement[1] === 'FOR') {
+            // INFO FOR KV
             if (statement[2] === 'KV') {
                 const result = await kv.infoForKV();
                 logEvent("trace", `process.ts processQuery`, `${query} ${JSON.stringify(result)}`);
                 return { result }
             }
 
+            // INFO FOR NS
             if (statement[2] === 'NS') {
                 if (!options.session.ns) throw Error('Select namespace first.');
 
@@ -151,6 +198,7 @@ export const processQuery = async (options: {
                 return { result }
             }
 
+            // INFO FOR DB
             if (statement[2] === 'DB') {
                 if (!options.session.ns) throw Error('Select namespace first.');
                 if (!options.session.db) throw Error('Select db first.');
@@ -159,6 +207,7 @@ export const processQuery = async (options: {
                 return { result }
             }
 
+            // INFO FOR TABLE
             if (statement[2] === 'TABLE') {
                 if (!options.session.ns) throw Error('Select namespace first.');
                 if (!options.session.db) throw Error('Select db first.');
@@ -171,35 +220,86 @@ export const processQuery = async (options: {
 
     }
 
+    // https://surrealdb.com/docs/surrealql/statements/remove
     if (statement[0] === 'REMOVE') {
+        // REMOVE NAMESPACE
         if (statement[1] === 'NAMESPACE') {
             const ns = statement[2];
             const result = await kv.removeNS({ ns });
             return { result }
+        }
+
+        // REMOVE DATABASE
+        if (statement[1] === 'DATABASE') {
+            throw Error('not implemented yet.');
+        }
+
+        // REMOVE LOGIN
+        if (statement[1] === 'LOGIN') {
+            throw Error('not implemented yet.');
+        }
+
+        // REMOVE TOKEN
+        if (statement[1] === 'TOKEN') {
+            throw Error('not implemented yet.');
+        }
+
+        // REMOVE SCOPE
+        if (statement[1] === 'SCOPE') {
+            throw Error('not implemented yet.');
+        }
+
+        // REMOVE TABLE
+        if (statement[1] === 'TABLE') {
+            throw Error('not implemented yet.');
+        }
+
+        // REMOVE EVENT
+        if (statement[1] === 'EVENT') {
+            throw Error('not implemented yet.');
+        }
+
+        // REMOVE FIELD
+        if (statement[1] === 'FIELD') {
+            throw Error('not implemented yet.');
+        }
+
+        // REMOVE INDEX
+        if (statement[1] === 'INDEX') {
+            throw Error('not implemented yet.');
         }
     }
 
     if (!options.session.ns) throw Error('Select namespace first.');
     if (!options.session.db) throw Error('Select db first.');
 
+    // https://surrealdb.com/docs/surrealql/statements/create
     if (statement[0] === "CREATE") {
+        const targets = statement[1];
+        const { id, tb } = parseIdFromThing(targets)
 
+        // CREATE @targets CONTENT
         if (statement[2] === 'CONTENT') {
             const data = extractJSON(query, "CONTENT", "RETURN");
+            if (!data.id) data.id = generateThingId(targets);
 
             const result = await kv.createContent({
                 targets: statement[1],
                 data,
                 ns: options.session.ns,
-                db: options.session.db
+                db: options.session.db,
+                session: options.session
             });
 
             logEvent("trace", `process::create content`, `${query} ${JSON.stringify(statement)}`);
             return { result: [result] };
         }
 
+        // CREATE @targets SET
         if (statement[2] === 'SET') {
-            const tableName = statement[1];
+            
+            console.log("---------------------------")
+            console.log({id, tb});
 
             // TODO move to a seperate parsing function that turns references into objects.
             const data: any = {}
@@ -210,29 +310,20 @@ export const processQuery = async (options: {
                     data[key] = value.replaceAll("\"", "").replaceAll("'", "");
                 })
 
-            if (!data.id) data.id = generateThingId(tableName);
+            if (!data.id) data.id = generateThingId(targets);
 
-            // check fields
-            const kvtable = await kv.getTable(options.session, tableName);
 
-            const processedFieldsData = await processFields({ session: options.session, dataIn: data, kvtable }).catch((err) => {
-                logEvent('trace', 'process.ts create set', err.message);
-                // pass error to caller so it can be sent to client.
-                throw err;
-            })
 
             const result = await kv.createContent({
-                targets: tableName,
-                data: processedFieldsData,
+                targets: tb,
+                data,
                 ns: options.session.ns,
-                db: options.session.db
+                db: options.session.db,
+                session: options.session
             });
             logEvent("trace", `process::create set`, `${query} ${JSON.stringify(statement)}`);
             return { result: [result] };
         }
-
-        const result = {};
-        return { result }
     }
 
     if (statement[0] === "SELECT") {
@@ -262,7 +353,8 @@ export const processQuery = async (options: {
                 targets: statement[1],
                 data,
                 ns: options.session.ns,
-                db: options.session.db
+                db: options.session.db,
+                session: options.session
             });
 
             logEvent("trace", `process::update`, `${query} ${JSON.stringify(statement)}`);

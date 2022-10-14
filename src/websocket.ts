@@ -4,6 +4,7 @@ import { Session, signin } from "./iam.ts";
 import { v4 } from "https://deno.land/std@0.157.0/uuid/mod.ts";
 import { TextLineStream } from "https://deno.land/std/streams/mod.ts"
 
+
 export interface SWebsocket extends WebSocket {
     id?: string
     session?: Session
@@ -43,7 +44,7 @@ export const websocketMessageHandler = async (m: MessageEvent, ws: SWebsocket) =
         if (!ws.session) {
             // must be authed to run anything below.
             const errorMsg = 'Not authorized.'
-            throw new Error(errorMsg);
+            throw new Error(`${errorMsg}. ${JSON.stringify(query)}`);
         }
 
         if (method === 'query') {

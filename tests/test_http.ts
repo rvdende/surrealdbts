@@ -69,13 +69,20 @@ export const httptest = async (config: TestConfig) => {
 		});
 
 		// -- Specify a field on the user table
-		await rest.query<[SR, SR<any[]>]>(config, "USE NS features DB platform; CREATE user SET name = \"Test User\", email = \"rouan@8bo.org\";")
+		await rest.query<[SR, SR<any[]>, SR<any[]>]>(config, `USE NS features DB platform; 
+		CREATE user SET name = \"Test User\", email = \"rouan@8bo.org\"; 
+		SELECT * FROM user WHERE email = \"rouan@8bo.org\";`)
 			.then(r => {
 				if (r[0].status !== "OK") throw new Error('Expected OK');
 				if (r[1].status !== "OK") throw new Error('Expected OK');
 				if (r[1].result[0].email != "rouan@8bo.org") throw new Error('error in email field on response')
 				if (r[1].result[0].name != "Test User") throw new Error('error in name field on response')
 				if (r[1].result[0].id.split(':')[0] != "user") throw new Error('error in id field on response')
+				console.log("-------------", r)
+				assert(r[2].status === 'OK', 'Expected OK');
+				assert(r[2].result[0].email === 'rouan@8bo.org', 'Missing entry data email')
+				assert(r[2].result[0].name === "Test User", 'Missing entry data name')
+
 			});
 
 		await rest.query<[SR, SR<any[]>]>(config, "USE NS features DB platform; CREATE user SET name = \"Test User\", email = \"notanemail\";")
@@ -104,7 +111,7 @@ export const httptest = async (config: TestConfig) => {
 		}];
 
 		await rest.query<[SR, SR, SR<testUserEntry[]>, SR<testUserEntry[]>, SR<testUserEntry[]>]>(config,
-		`USE NS features DB platform; 
+			`USE NS features DB platform; 
 			DEFINE INDEX email ON TABLE user COLUMNS email UNIQUE;
 			CREATE user SET name = \"${testColumnUnique[0].name}\", email = \"${testColumnUnique[0].email}\";
 			CREATE user SET name = \"${testColumnUnique[1].name}\", email = \"${testColumnUnique[1].email}\";

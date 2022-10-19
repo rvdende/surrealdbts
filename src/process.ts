@@ -2,8 +2,7 @@ import { Session } from "./iam.ts";
 import { kv } from "./index.ts";
 import { parseIdFromThing } from "./kv.ts";
 import { logEvent } from "./log.ts";
-import { NS } from "./ns.ts";
-import { extractJSON } from "./process_fields.ts";
+import { extractJSON } from "./process_table.ts";
 import { clone } from "./utils.ts";
 
 export const processQueries = async (options: {
@@ -33,9 +32,11 @@ export const processQueries = async (options: {
             result = proc.result;
 
             results.push({
-                result,
+                time: `${((performance.now() - starttime) * 1000).toFixed(2)}µs`,
                 status: "OK",
-                time: `${((performance.now() - starttime) * 1000).toFixed(2)}µs`
+                result,
+
+
             })
         }
     }
@@ -47,7 +48,7 @@ export const processQueries = async (options: {
 export const processQuery = async (options: {
     query: string,
     session: Session
-}): Promise<{ result: any }> => {
+}) => {
     const query = options.query;
     const statement = query.split(' ');
     logEvent("debug", `process.ts`, `Executing: ${query}`);
@@ -297,9 +298,9 @@ export const processQuery = async (options: {
 
         // CREATE @targets SET
         if (statement[2] === 'SET') {
-            
+
             console.log("---------------------------")
-            console.log({id, tb});
+            console.log({ id, tb });
 
             // TODO move to a seperate parsing function that turns references into objects.
             const data: any = {}
@@ -320,7 +321,8 @@ export const processQuery = async (options: {
                 ns: options.session.ns,
                 db: options.session.db,
                 session: options.session
-            });
+            })
+
             logEvent("trace", `process::create set`, `${query} ${JSON.stringify(statement)}`);
             return { result: [result] };
         }

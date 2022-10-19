@@ -82,6 +82,7 @@ export const websockettest = async (config: TestConfig) => {
 
 	logEvent("test", "test_websocket::websockettest", `WS SELECT`);
 	await db.select<IPerson>(`person`).then(r => {
+		console.log(r)
 		if (r.length !== 2) throw Error('expected two entries.');
 		// if (r[0].name.first !== 'Tobie') throw Error('missing first entry name');
 		// if (r[1].id != 'person:jaime') throw Error('missing jaime id');

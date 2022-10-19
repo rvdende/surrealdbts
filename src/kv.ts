@@ -4,7 +4,7 @@ import { KVStorageEngine, initializeStorage } from "./kv_storage.ts";
 import { KVTable } from "./kv_table.ts";
 import { logEvent } from "./log.ts";
 import { NS } from './ns.ts';
-import { processFields } from "./process_fields.ts";
+import { processTable } from "./process_table.ts";
 
 export interface KVConstructorOptions {
     storageArgs: string
@@ -232,13 +232,10 @@ export class KV {
 
         const kvtable = await kv.getTable(session, tb);
 
-        const processedFieldsData = await processFields({
+        const processedFieldsData = await processTable({
             session,
             dataIn: data,
             kvtable
-        }).catch((err) => {
-            logEvent('trace', 'process.ts create set', err.message);
-            throw err;
         })
 
 
@@ -269,7 +266,13 @@ export class KV {
         await this.storage.set(`_row:${ns}:${db}:${tb}:${id}`, output);
     }
 
-    async select({ projections, targets, ns, db }: { projections: string, targets: string, ns: string, db: string }) {
+    async select<T>({ projections, targets, ns, db }: {
+        projections: string,
+        /** table? */
+        targets: string,
+        ns: string,
+        db: string
+    }) {
         const tb = targets; // TODO ?
         let tbInfo = await this.infoForTable({ tb, ns, db });
 
@@ -277,10 +280,11 @@ export class KV {
 
         if (!tbInfo) throw new Error('Table does not exist.');
 
-        const rows = await Promise.all(Object.keys(tbInfo._rowids).map(id => this.storage.get(`_row:${ns}:${db}:${tb}:${id}`)))
+        const rows = await (await Promise.all(Object.keys(tbInfo._rowids).map(id => this.storage.get(`_row:${ns}:${db}:${tb}:${id}`))))
+            .filter( r => r !== undefined)
 
 
-        return rows;
+        return rows as T[];
     }
 
 }

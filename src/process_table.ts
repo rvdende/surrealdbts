@@ -1,38 +1,9 @@
-import { resolve } from "https://deno.land/std@0.153.0/path/win32.ts";
-import { assert } from "https://deno.land/std@0.157.0/_util/assert.ts";
 import { FieldAssert, parseAssertFunction } from "./functions/validation.ts";
 import { Session } from "./iam.ts";
 import { kv } from "./index.ts";
+import { parseIndex } from "./ix.ts";
 import { KVTable } from "./kv_table.ts";
 
-export interface Index {
-    indexName: string
-    tableName: string
-    fulltext: boolean
-    unique: boolean
-    definitionRaw: string,
-    fields: string[]
-}
-
-export const parseIndex = (definitionRaw: string) => {
-    // DEFINE INDEX @name ON [ TABLE ] @table [ FIELDS | COLUMNS ] @fields [ UNIQUE ]
-    const words = definitionRaw.split(' ');
-    const wordTableNameIndex = (words[4] === 'TABLE') ? 5 : 4;
-    const fields = stringBetweenKeywords(definitionRaw, ["FIELDS", "COLUMNS"], ["UNIQUE"]);
-
-    if (!fields) throw Error(`could not parse index definition: ${definitionRaw}`)
-
-    const index: Index = {
-        indexName: words[2],
-        tableName: words[wordTableNameIndex],
-        fulltext: words.indexOf('FULLTEXT') > 0,
-        unique: words.indexOf('UNIQUE') > 0,
-        definitionRaw,
-        fields: fields.split(', '),
-    }
-
-    return index;
-}
 
 export const parseField = (definitionRaw: string) => {
     // https://surrealdb.com/docs/surrealql/statements/define

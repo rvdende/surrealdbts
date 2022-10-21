@@ -2,6 +2,7 @@ import { setRaw } from "https://deno.land/std@0.153.0/_deno_unstable.ts";
 import { assert } from "https://deno.land/std@0.157.0/_util/assert.ts";
 import { iTBinfo } from "../src/kv.ts";
 import { logEvent } from "../src/log.ts";
+import { logTest } from "./logtest.ts";
 import { KV, SR, rest } from './surrealclient.ts'
 import { TestConfig } from './test_config.ts'
 
@@ -80,7 +81,7 @@ export const httptest = async (config: TestConfig) => {
 			assert(r[3].result[0].email === "rouan@8bo.org", "Error in email field on response")
 			assert(r[3].result[0].name === "Test User", 'error in name field on response');
 			assert(r[3].result[0].id.split(':')[0] === "user", 'error in id field on response');
-			
+
 			// CREATE user SET name = \"Another User\", email = \"notanemail\";
 			assert(r[4].status === "ERR", 'Expected ERR');
 			assert(r[4].detail?.startsWith('Found "notanemail" for field `email`, with record `user'), 'Missing details of error')
@@ -109,24 +110,28 @@ export const httptest = async (config: TestConfig) => {
 			email: "first@example.com"
 		}];
 
-		await rest.query<[SR, SR, SR<testUserEntry[]>, SR<testUserEntry[]>, SR<testUserEntry[]>]>(config,
-			`USE NS features DB platform; 
-			DEFINE INDEX email ON TABLE user COLUMNS email UNIQUE;
-			CREATE user SET name = \"${testColumnUnique[0].name}\", email = \"${testColumnUnique[0].email}\";
-			CREATE user SET name = \"${testColumnUnique[1].name}\", email = \"${testColumnUnique[1].email}\";
-			CREATE user SET name = \"${testColumnUnique[2].name}\", email = \"${testColumnUnique[2].email}\";
-		`)
+
+		const cmds = [
+			`USE NS features DB platform; `,
+			`CREATE user SET name = \"${testColumnUnique[0].name}\", email = \"${testColumnUnique[0].email}\";`,
+			`CREATE user SET name = \"${testColumnUnique[1].name}\", email = \"${testColumnUnique[1].email}\";`,
+			`CREATE user SET name = \"${testColumnUnique[2].name}\", email = \"${testColumnUnique[2].email}\";`,
+			`DEFINE INDEX email ON TABLE user COLUMNS email UNIQUE;`
+		]
+
+		await rest.query<[SR, SR, SR<testUserEntry[]>, SR<testUserEntry[]>, SR<testUserEntry[]>]>(config, cmds.join(""))
 			.then(r => {
-				console.log(r);
-				if (r[4].status !== 'ERR') console.log(r);
-				assert(r[0].status === 'OK', `Expected OK on use ns db. ERR: ${r[0].detail}`)
-				assert(r[1].status === 'OK', `Expected OK on define index with unique. ERR: ${r[1].detail}`)
-				assert(r[2].status === 'OK', `Expected OK on create user with email. ERR: ${r[2].detail}`)
-				assert(r[2].result[0].name === testColumnUnique[0].name, 'Error creating user entry 0');
-				assert(r[3].result[0].name === testColumnUnique[1].name, 'Error creating user entry 1');
-				assert(r[4].result === undefined, 'Expected no result on duplicate entry.')
-				assert(r[4].status === "ERR", 'Expected status to be ERR because of unique column.')
-				assert(r[4].detail?.startsWith(`Database index \`email\` already contains "${testColumnUnique[0].email}", with record \`user:`))
+				logTest(cmds, r);
+
+				// if (r[4].status !== 'ERR') console.log(r);
+				// assert(r[0].status === 'OK', `Expected OK on use ns db. ERR: ${r[0].detail}`)
+				// assert(r[1].status === 'OK', `Expected OK on define index with unique. ERR: ${r[1].detail}`)
+				// assert(r[2].status === 'OK', `Expected OK on create user with email. ERR: ${r[2].detail}`)
+				// assert(r[2].result[0].name === testColumnUnique[0].name, 'Error creating user entry 0');
+				// assert(r[3].result[0].name === testColumnUnique[1].name, 'Error creating user entry 1');
+				// assert(r[4].result === undefined, 'Expected no result on duplicate entry.')
+				// assert(r[4].status === "ERR", 'Expected status to be ERR because of unique column.')
+				// assert(r[4].detail?.startsWith(`Database index \`email\` already contains "${testColumnUnique[0].email}", with record \`user:`))
 			})
 
 
@@ -136,3 +141,4 @@ export const httptest = async (config: TestConfig) => {
 		logEvent("error", "ERROR", err.message);
 	}
 }
+

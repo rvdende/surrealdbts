@@ -1,5 +1,6 @@
 import { Session } from "./iam.ts";
 import { kv } from "./index.ts";
+import { parseIndex } from "./ix.ts";
 import { parseIdFromThing } from "./kv.ts";
 import { logEvent } from "./log.ts";
 import { extractJSON } from "./process_table.ts";
@@ -163,15 +164,20 @@ export const processQuery = async (options: {
             if (!options.session.db) throw Error('Select db first.');
             const tableIndex = (statement[4] === "TABLE") ? 5 : 4;
             const tableName: string = statement[tableIndex];
-            // removes the "TABLE keyword from the definition same as surrealdb.
-            const definition = (statement[4] === "TABLE") ? query.replace(" TABLE ", " ") : query;
+            
+            
             const table = await kv.getTable(options.session, tableName)
 
-            const result = await table.define({
-                type: 'ix',
-                fieldName: statement[2],
-                definition
-            })
+            const result = await table.defineIndex(query);
+
+            // const result = await table.define({
+            //     type: 'ix',
+            //     fieldName: statement[2],
+            //     definition
+            // })
+
+            // const index = parseIndex(definition);
+            // console.log('create index', index)
 
             logEvent("trace", `process.define.index`, `${query} ${JSON.stringify(result)}`);
             return { result }

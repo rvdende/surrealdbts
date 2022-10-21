@@ -24,38 +24,36 @@ import { getArgs } from "./args.ts";
 export const version = "0.0.1";
 export const versiondate = "2022-10-03T15:29:28.716Z"
 
-showLogo();
+
 
 export let kv: KV;
 
-const args = getArgs();
+export function surrealdbts() {
+    showLogo();
+    const args = getArgs();
 
+    if (args._[0] === 'start') {
+        if (args.user) {
+            logEvent("info", "index.ts", `Root authentication is enabled`);
+            logEvent("info", "index.ts", `Root username is '${args.user}'`);
+        }
 
-// addEventListener("error", (event) => {
-//     console.log("Caught unhandled event:", event.message);
-//     event.preventDefault();
-// });
+        // TODO STRICT
+        logEvent("info", "index.ts", `Database strict mode is disabled`);
 
-if (args._[0] === 'start') {
-    if (args.user) {
-        logEvent("info", "index.ts", `Root authentication is enabled`);
-        logEvent("info", "index.ts", `Root username is '${args.user}'`);
-    }
+        // initialize the kv db.
+        kv = new KV({ storageArgs: args.storageArgs });
 
-    // TODO STRICT
-    logEvent("info", "index.ts", `Database strict mode is disabled`);
+        logEvent("info", "start.ts", `Starting webserver on ${args.bind}`);
 
-    // initialize the kv db.
-    kv = new KV({ storageArgs: args.storageArgs });
-
-    logEvent("info", "start.ts", `Starting webserver on ${args.bind}`);
-
-    try {
-        web();
-        // serve(web, { port: args.bind ? parseInt(args.bind.split(':').at(-1) || "8000") : 8000 });
-    } catch (err) {
-        logEvent('error', 'index.ts', `${err.message}`);
-        logEvent('trace', 'index.ts error', `${err.toString()}`);
+        try {
+            web();
+            // serve(web, { port: args.bind ? parseInt(args.bind.split(':').at(-1) || "8000") : 8000 });
+        } catch (err) {
+            logEvent('error', 'index.ts', `${err.message}`);
+            logEvent('trace', 'index.ts error', `${err.toString()}`);
+        }
     }
 }
+
 

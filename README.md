@@ -46,8 +46,8 @@ In another window run:
 
 ```
 # runs against localhost:8000
-deno run --allow-net --watch tests/index.ts 0
+deno run --allow-all --watch tests/index.ts 0
 
 # runs against localhost:8080
-deno run --allow-net --watch tests/index.ts 1
+deno run --allow-all --watch tests/index.ts 1
 ```

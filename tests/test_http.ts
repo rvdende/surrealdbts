@@ -45,8 +45,7 @@ export const httptest = async (config: TestConfig) => {
 
 		// db platform
 		/** -- Specify a field on the user table */
-		const definitionTBdefineFieldTest = 'DEFINE FIELD email ON TABLE user TYPE string ASSERT is::email($value)';
-		const definitionTBdefineFieldTestResult = 'DEFINE FIELD email ON user TYPE string ASSERT is::email($value)'
+
 
 		logEvent("test", "test_http::httptest", `features / platform / Specify a field on the user table`);
 
@@ -55,43 +54,43 @@ export const httptest = async (config: TestConfig) => {
 			if (r[1].status !== "OK") throw new Error('Expected OK');
 		});
 
-		await rest.query<[SR, SR]>(config, `USE NS features DB platform; ${definitionTBdefineFieldTest}`).then(r => {
-			if (r[0].status !== "OK") throw new Error('Expected OK');
-			if (r[1].status !== "OK") throw new Error('Expected OK');
-		});
 
-		await rest.query<[SR, SR<iTBinfo>]>(config, "USE NS features DB platform; INFO FOR TABLE user;").then(r => {
-			if (r[0].status !== "OK") throw new Error('Expected OK');
-			if (r[1].status !== "OK") throw new Error('Expected OK');
-			// console.log(r);
-			// console.log(r[1].result.fd.email);
-			if (r[1].result.fd.email !== definitionTBdefineFieldTestResult) { throw new Error('field did not set on table user') }
-		});
 
 		// -- Specify a field on the user table
-		await rest.query<[SR, SR<any[]>, SR<any[]>]>(config, `USE NS features DB platform; 
-		CREATE user SET name = \"Test User\", email = \"rouan@8bo.org\"; 
-		SELECT * FROM user WHERE email = \"rouan@8bo.org\";`)
-			.then(r => {
-				if (r[0].status !== "OK") throw new Error('Expected OK');
-				if (r[1].status !== "OK") throw new Error('Expected OK');
-				if (r[1].result[0].email != "rouan@8bo.org") throw new Error('error in email field on response')
-				if (r[1].result[0].name != "Test User") throw new Error('error in name field on response')
-				if (r[1].result[0].id.split(':')[0] != "user") throw new Error('error in id field on response')
-				console.log("-------------", r)
-				assert(r[2].status === 'OK', 'Expected OK');
-				assert(r[2].result[0].email === 'rouan@8bo.org', 'Missing entry data email')
-				assert(r[2].result[0].name === "Test User", 'Missing entry data name')
+		const definitionTBdefineFieldTest = 'DEFINE FIELD email ON TABLE user TYPE string ASSERT is::email($value)';
+		await rest.query<[SR, SR, SR<iTBinfo>, SR<any[]>, SR<any[]>, SR<any[]>]>(config, `USE NS features DB platform;
+		DEFINE FIELD email ON TABLE user TYPE string ASSERT is::email($value);
+		INFO FOR TABLE user;
+		CREATE user SET name = \"Test User\", email = \"rouan@8bo.org\";
+		CREATE user SET name = \"Another User\", email = \"notanemail\";
+		SELECT * FROM user WHERE email = \"rouan@8bo.org\";
+		`).then(r => {
 
-			});
+			// USE NS features DB platform;
+			assert(r[0].status === "OK");
 
-		await rest.query<[SR, SR<any[]>]>(config, "USE NS features DB platform; CREATE user SET name = \"Test User\", email = \"notanemail\";")
-			.then(r => {
-				if (r[0].status !== "OK") throw new Error('Expected OK');
-				if (r[1].status !== "ERR") throw new Error('Expected ERR');
-				if (!r[1].detail?.startsWith('Found "notanemail" for field `email`, with record `user')) throw new Error('Missing details of error');
+			// DEFINE FIELD email ON TABLE user TYPE string ASSERT is::email($value);
+			assert(r[1].status === "OK");
 
-			});
+			// INFO FOR TABLE user;			
+			assert(r[2].result.fd.email == definitionTBdefineFieldTest.replace(" TABLE ", " "), "Error: Field did not set on table user.");
+
+			// CREATE user SET name = \"Test User\", email = \"rouan@8bo.org\";
+			assert(r[3].status === "OK");
+			assert(r[3].result[0].email === "rouan@8bo.org", "Error in email field on response")
+			assert(r[3].result[0].name === "Test User", 'error in name field on response');
+			assert(r[3].result[0].id.split(':')[0] === "user", 'error in id field on response');
+			
+			// CREATE user SET name = \"Another User\", email = \"notanemail\";
+			assert(r[4].status === "ERR", 'Expected ERR');
+			assert(r[4].detail?.startsWith('Found "notanemail" for field `email`, with record `user'), 'Missing details of error')
+
+			// SELECT * FROM user WHERE email = \"rouan@8bo.org\";
+			assert(r[5].status === 'OK', 'Expected OK');
+			assert(r[5].result[0].email === 'rouan@8bo.org', 'Missing entry data email')
+			assert(r[5].result[0].name === "Test User", 'Missing entry data name')
+		});
+
 
 		// -- Add a unique index on the email field to prevent duplicate values
 		interface testUserEntry {
@@ -118,6 +117,7 @@ export const httptest = async (config: TestConfig) => {
 			CREATE user SET name = \"${testColumnUnique[2].name}\", email = \"${testColumnUnique[2].email}\";
 		`)
 			.then(r => {
+				console.log(r);
 				if (r[4].status !== 'ERR') console.log(r);
 				assert(r[0].status === 'OK', `Expected OK on use ns db. ERR: ${r[0].detail}`)
 				assert(r[1].status === 'OK', `Expected OK on define index with unique. ERR: ${r[1].detail}`)

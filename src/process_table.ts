@@ -176,40 +176,89 @@ export const extractJSON = (inputstring: string,
 export const extractSetData = (targets: string, query: string) => {
     const data: any = {}
 
-    devLog(query, "magenta");
+    const qstr = stringBetweenKeywords(query, ["SET"]);
 
-    const resultc2 = stringBetweenKeywords(query, ["SET"]);
-    
     // TODO PARSE string::join()...
     // perhaps use eval ?
-    devLog(resultc2, "magenta");
+    console.log("--------------------------------")
 
-    
+    if (!qstr) return {};
+    let busyWithField = true;
+    let field = "";
+    let value = "";
+    let ignoreCommas = false;
 
-    let statement = query.split(" ");
-    
-    statement.slice(3).join(" ").split(',').forEach(field => {
-        devLog(field, "blue");
-
-        const key = field.split("=")[0].trim();
-        try {
-            let value = field.split("=")[1].trim();
-
-            devLog(value);
-            if (value.startsWith("string::join(")) {
-                console.log("Found string join!");
-                return;
-            }
-
-            if (value === "time::now()") {
-                value = new Date().toISOString()
-            }
-            data[key] = value.replaceAll("\"", "").replaceAll("'", "");
-        } catch (err) {
-            data[key] = err.message
+    const parseChar = (c: string) => {
+        if (c === "(") {
+            ignoreCommas = true
         }
 
-    })
+        if (c === ")") {
+            ignoreCommas = false;
+        }
+
+        if (!ignoreCommas && c === ',') {
+            data[field.trim()] = value.trim();
+            field = "";
+            value = "";
+            busyWithField = true;
+            return;
+        }
+
+        
+
+        if (c === "=") {
+            busyWithField = false;
+            return;
+        }
+
+        if (busyWithField) {
+            field += c;
+            return;
+        }
+
+        if (!busyWithField) {
+            value += c;
+            return;
+        }
+    }
+
+    for (let char = 0; char < qstr.length; char++) {
+        let c = qstr[char]; // character
+        parseChar(c);
+        // devLog({field, value, data});
+    }
+
+    devLog(qstr, "red");
+
+    console.log(data);
+    console.log("--------------------------------")
+
+
+    // let statement = query.split(" ");
+
+    // statement.slice(3).join(" ").split(',').forEach(field => {
+    //     devLog(field, "blue");
+
+    //     const key = field.split("=")[0].trim();
+    //     try {
+    //         let value = field.split("=")[1].trim();
+
+    //         devLog(value);
+    //         if (value.startsWith("string::join(")) {
+    //             console.log("Found string join!");
+    //             return;
+    //         }
+
+    //         if (value === "time::now()") {
+    //             value = new Date().toISOString()
+    //         }
+    //         data[key] = value.replaceAll("\"", "").replaceAll("'", "");
+    //     } catch (err) {
+    //         data[key] = err.message
+    //     }
+
+    // })
 
     if (!data.id) data.id = generateThingId(targets);
 

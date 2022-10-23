@@ -1,8 +1,11 @@
 import { FieldAssert, parseAssertFunction } from "./functions/validation.ts";
 import { Session } from "./iam.ts";
-import { kv } from "./index.ts";
+// import { kv } from "./index.ts";
 import { parseIndex } from "./ix.ts";
-import { KVTable } from "./kv_table.ts";
+import { KV } from "./kv.ts";
+import { devLog } from "./log.ts";
+import { generateThingId } from "./process.ts";
+import { KVTable } from "./tb.ts";
 
 
 export const parseField = (definitionRaw: string) => {
@@ -45,34 +48,35 @@ export const parseField = (definitionRaw: string) => {
 export const processTable = async (options: {
     session: Session,
     dataIn: any,
-    kvtable: KVTable
+    kvtable: KVTable,
+    kv: KV
 }) => {
     const { session, dataIn, kvtable } = options;
 
     const indexTasks = [];
 
     Object.keys(kvtable.tbInfo.ix).forEach(ix => {
-            const index = parseIndex(kvtable.tbInfo.ix[ix]);
-            if (index.unique && index.fields) {
-                index.fields.forEach(async (uniqueFieldName) => {
-                    if (dataIn[uniqueFieldName]) {
-                        // todo optimize select.
-                        const result = await kv.select<any>({
-                            projections: "",
-                            targets: kvtable.tableName,
-                            ns: session.ns,
-                            db: session.db
-                        })
+        const index = parseIndex(kvtable.tbInfo.ix[ix]);
+        if (index.unique && index.fields) {
+            index.fields.forEach(async (uniqueFieldName) => {
+                if (dataIn[uniqueFieldName]) {
+                    // todo optimize select.
+                    const result = await options.kv.select<any>({
+                        projections: "",
+                        targets: kvtable.tableName,
+                        ns: session.ns,
+                        db: session.db
+                    })
 
-                        const uniqueRowAlreadyExists = result.filter((i) => i[uniqueFieldName] === dataIn[uniqueFieldName]);
-                        if (uniqueRowAlreadyExists.length > 0) {
-                            console.log('asmdklamsdkl');
-                            throw new Error('asdf')
-                        }
+                    const uniqueRowAlreadyExists = result.filter((i) => i[uniqueFieldName] === dataIn[uniqueFieldName]);
+                    if (uniqueRowAlreadyExists.length > 0) {
+                        // console.log('asmdklamsdkl');
+                        // throw new Error('asdf')
                     }
-                })
-            }
-        
+                }
+            })
+        }
+
     })
 
     // throw new Error('placeholder error');
@@ -169,6 +173,48 @@ export const extractJSON = (inputstring: string,
     return parsed;
 }
 
+export const extractSetData = (targets: string, query: string) => {
+    const data: any = {}
+
+    devLog(query, "magenta");
+
+    const resultc2 = stringBetweenKeywords(query, ["SET"]);
+    
+    // TODO PARSE string::join()...
+    // perhaps use eval ?
+    devLog(resultc2, "magenta");
+
+    
+
+    let statement = query.split(" ");
+    
+    statement.slice(3).join(" ").split(',').forEach(field => {
+        devLog(field, "blue");
+
+        const key = field.split("=")[0].trim();
+        try {
+            let value = field.split("=")[1].trim();
+
+            devLog(value);
+            if (value.startsWith("string::join(")) {
+                console.log("Found string join!");
+                return;
+            }
+
+            if (value === "time::now()") {
+                value = new Date().toISOString()
+            }
+            data[key] = value.replaceAll("\"", "").replaceAll("'", "");
+        } catch (err) {
+            data[key] = err.message
+        }
+
+    })
+
+    if (!data.id) data.id = generateThingId(targets);
+
+    return data;
+}
 
 
 export interface Field {

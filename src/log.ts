@@ -2,6 +2,12 @@ import { getArgs } from "./args.ts";
 
 export type LogSeverity = "test" | "log" | "error" | "warn" | "info" | "debug" | "trace" | "full";
 
+let logSeverityOverride: LogSeverity | undefined = undefined;
+
+export function setLogLevel(severity:LogSeverity) {
+    logSeverityOverride = severity;
+}
+
 export function logEvent(severity: LogSeverity, source: string, message = "") {
     const args = getArgs();
 
@@ -19,7 +25,8 @@ export function logEvent(severity: LogSeverity, source: string, message = "") {
     const colsource = "color: green; background-color: black;";
     const colmessage = colseverity;
 
-    if (args.log === 'debug') {
+    const loglevel = (logSeverityOverride) ? logSeverityOverride : args.log;
+    if (loglevel=== 'debug') {
         if (severity === 'trace') return;
         if (severity === 'warn') return;
     }
@@ -46,4 +53,11 @@ function formatDate(date: Date) {
             padTo2Digits(date.getSeconds()),
         ].join(':')
     );
+}
+
+
+export function devLog(input:any, color?:string) {
+
+    let c = color || "yellow";
+    console.log(`%c${JSON.stringify(input)}`,`color: ${c}`)
 }

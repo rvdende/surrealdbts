@@ -19,14 +19,16 @@ import {
 import { web } from './web.ts'
 import { KV } from "./kv.ts";
 import { getArgs } from "./args.ts";
+import { SurrealDBTS } from "./surrealdbts.ts";
 
 /** release version */
 export const version = "0.0.1";
 export const versiondate = "2022-10-03T15:29:28.716Z"
 
+export * from './interfaces/index.ts'
 
 
-export let kv: KV;
+// export let kv = new KV();
 
 export function surrealdbts() {
     showLogo();
@@ -40,14 +42,13 @@ export function surrealdbts() {
 
         // TODO STRICT
         logEvent("info", "index.ts", `Database strict mode is disabled`);
-
-        // initialize the kv db.
-        kv = new KV({ storageArgs: args.storageArgs });
-
         logEvent("info", "start.ts", `Starting webserver on ${args.bind}`);
 
         try {
-            web();
+
+            const instance = new SurrealDBTS({ kvOptions: { storageArgs: args.storageArgs }});
+
+            web(instance);
             // serve(web, { port: args.bind ? parseInt(args.bind.split(':').at(-1) || "8000") : 8000 });
         } catch (err) {
             logEvent('error', 'index.ts', `${err.message}`);

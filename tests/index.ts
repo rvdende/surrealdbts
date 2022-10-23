@@ -9,13 +9,10 @@ import { logEvent } from "../src/log.ts";
 import { delay } from "./delay.ts";
 import { configs } from "./test_config.ts";
 import { httptest } from "./test_http.ts";
-import { unittests } from "./test_unittests.ts";
+
 import { websockettest } from "./test_websocket.ts";
 
 export const args = parse(Deno.args) as Args;
-
-/////// UNIT TESTS
-unittests();
 
 
 await delay(250); // wait a little before running the end to end tests

@@ -4,10 +4,12 @@ import { getArgs } from './args.ts'
 import { logEvent } from "./log.ts";
 import { Session } from "./iam.ts";
 import { SWebsocket, websocketMessageHandler } from "./websocket.ts";
-import { processQueries } from "./process.ts";
+
 import { readAll } from "https://deno.land/std@0.120.0/streams/conversion.ts";
 
-export function web() {
+import { SurrealDBTS } from "./surrealdbts.ts";
+
+export function web(instance: SurrealDBTS) {
   const args = getArgs();
   const app = opine();
   const sockets = new Map<string, SWebsocket>();
@@ -25,8 +27,8 @@ export function web() {
       logEvent("trace", "surreal::web ws.close", `ws closed "${ws.id}"`);
     });
 
-    ws.addEventListener("message", async (e) => {
-      await websocketMessageHandler(e, ws);
+    ws.addEventListener("message", async (m) => {
+      await websocketMessageHandler(m, ws, instance);
     });
   };
 
@@ -66,7 +68,9 @@ export function web() {
     })
     const queries = body.trim().split(';').map((q: string) => q.trim()).filter((q: string) => q != "");
 
-    const result = await processQueries({ queries, session }).catch(async (err) => {
+    let authedDbConnection = instance.getUserSession(session);
+
+    const result = await authedDbConnection.processQueries({ queries }).catch(async (err) => {
       await logEvent('error', 'web /sql', `${err.message}`)
       console.log(err);
       await logEvent('trace', 'web /sql error', `${err.toString()}`)

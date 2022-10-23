@@ -1,13 +1,12 @@
 import { logEvent } from "./log.ts";
-import { processQueries, processQuery } from "./process.ts";
 import { Session, signin } from "./iam.ts";
-import { v4 } from "https://deno.land/std@0.157.0/uuid/mod.ts";
-import { TextLineStream } from "https://deno.land/std/streams/mod.ts"
+import { SurrealDBTS } from "./surrealdbts.ts";
 
 
 export interface SWebsocket extends WebSocket {
     id?: string
     session?: Session
+    instance?: SurrealDBTS
 }
 
 export interface WebsocketRequest {
@@ -16,7 +15,7 @@ export interface WebsocketRequest {
     params: any[]
 }
 
-export const websocketMessageHandler = async (m: MessageEvent, ws: SWebsocket) => {
+export const websocketMessageHandler = async (m: MessageEvent, ws: SWebsocket, serverinstance: SurrealDBTS) => {
     const query = JSON.parse(m.data) as WebsocketRequest;
     const method = query.method;
     const id = query.id;
@@ -30,6 +29,9 @@ export const websocketMessageHandler = async (m: MessageEvent, ws: SWebsocket) =
         if (method === 'signin') {
             let output = await signin(params[0]);
             ws.session = output.session;
+
+            ws.instance = serverinstance.getUserSession(ws.session);
+
             result = output.response;
             ws.send(JSON.stringify({ id, result }));
             return;
@@ -47,44 +49,36 @@ export const websocketMessageHandler = async (m: MessageEvent, ws: SWebsocket) =
             throw new Error(`${errorMsg}. ${JSON.stringify(query)}`);
         }
 
+        if (!ws.instance) {
+            // must have a valid instance to run anything below
+            const errorMsg = 'No authed instance to use.'
+            throw new Error(`${errorMsg}. ${JSON.stringify(query)}`);
+        }
+
         if (method === 'query') {
             const queryParams: string[] = params;
             const queries = queryParams[0].trim().split(';').map(q => q.trim()).filter(q => q != "");
-            result = await processQueries({
-                queries,
-                session: ws.session
-            });
+            result = await ws.instance.processQueries({ queries });
             ws.send(JSON.stringify({ id, result }));
             return;
         }
 
         if (method === 'use') {
             console.log('websocket use')
-            const output = await processQuery({
-                query: `USE NS ${params[0]} DB ${params[1]}`,
-                session: ws.session
-            })
-
-            console.log(ws.session);
+            const output = await ws.instance.processQuery({ query: `USE NS ${params[0]} DB ${params[1]}` })
 
             ws.send(JSON.stringify({ id, result: output.result }));
             return;
         }
 
         if (method === 'create') {
-            const output = await processQuery({
-                query: `CREATE ${params[0]} CONTENT ${JSON.stringify(params[1])} RETURN AFTER`,
-                session: ws.session
-            })
+            const output = await ws.instance.processQuery({ query: `CREATE ${params[0]} CONTENT ${JSON.stringify(params[1])} RETURN AFTER` });
             ws.send(JSON.stringify({ id, result: output.result }));
             return;
         }
 
         if (method === 'change') {
-            const output = await processQuery({
-                query: `UPDATE ${params[0]} CONTENT ${JSON.stringify(params[1])} RETURN AFTER`,
-                session: ws.session
-            })
+            const output = await ws.instance.processQuery({ query: `UPDATE ${params[0]} CONTENT ${JSON.stringify(params[1])} RETURN AFTER` });
 
             const packet = JSON.stringify({ id, result: output.result })
             logEvent("trace", "ws.send", packet);
@@ -93,10 +87,7 @@ export const websocketMessageHandler = async (m: MessageEvent, ws: SWebsocket) =
         }
 
         if (method === 'select') {
-            const output = await processQuery({
-                query: `SELECT * FROM ${params[0]}`,
-                session: ws.session
-            })
+            const output = await ws.instance.processQuery({ query: `SELECT * FROM ${params[0]}` });
             const packet = JSON.stringify({ id, result: output.result });
             logEvent("trace", "ws.send", packet);
             ws.send(packet);
@@ -105,10 +96,7 @@ export const websocketMessageHandler = async (m: MessageEvent, ws: SWebsocket) =
 
         if (method === 'live') {
             // console.log(params);
-            const output = await processQuery({
-                query: `LIVE SELECT * FROM ${params[0]}`,
-                session: ws.session
-            })
+            const output = await ws.instance.processQuery({ query: `LIVE SELECT * FROM ${params[0]}` });
             const packet = JSON.stringify({ id, result: output.result });
             logEvent("trace", "ws.send", packet);
             ws.send(packet);
@@ -117,10 +105,7 @@ export const websocketMessageHandler = async (m: MessageEvent, ws: SWebsocket) =
 
         if (method === 'kill') {
             logEvent("trace", "websockets.ts kill", `${JSON.stringify(params)}`);
-            const output = await processQuery({
-                query: `KILL ${params[0]}`,
-                session: ws.session
-            })
+            const output = await ws.instance.processQuery({ query: `KILL ${params[0]}` });
             const packet = JSON.stringify({ id, result: output.result });
             logEvent("trace", "ws.send", packet);
             ws.send(packet);

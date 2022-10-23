@@ -1,18 +1,14 @@
-import { assert } from "https://deno.land/std@0.153.0/_util/assert.ts";
+import { assert } from "https://deno.land/std@0.157.0/_util/assert.ts"
 
-import { parseField, stringBetweenKeywords, stringBetweenKeywordsProc } from "../src/process_table.ts";
-import { logEvent } from "../src/log.ts";
-import { is } from "../src/functions/validation.ts";
-
-export const unittests = () => {
-    test_stringBetweenKeywords();
-    testFields();
-    test_functions_validation();
-}
+import { SurrealDBTS } from "./src/surrealdbts.ts";
+import { iKVinfo } from "./tests/surrealclient.ts";
+import { SR } from './src/index.ts'
+import { devLog, logEvent } from "./src/log.ts";
+import { stringBetweenKeywordsProc,stringBetweenKeywords, parseField } from "./src/process_table.ts";
+import { is } from "./src/functions/validation.ts";
 
 
-
-const testFields = () => {
+Deno.test("testFields", () => {
     logEvent("test", "fields", `testing parsing of fields`);
 
     const astring = 'DEFINE FIELD age ON person TYPE number ASSERT $value > 0;'
@@ -36,10 +32,9 @@ const testFields = () => {
     assert(c.tableName === 'person');
     assert(c.type === 'string')
     assert(c.assert?.definition === "$value VALUE $value OR 'No name'")
+})
 
-}
-
-const test_stringBetweenKeywords = () => {
+Deno.test("StringBetweenKeywords", () => {
     logEvent("test", "stringBetweenKeywords", `test stringBetweenKeywords`);
 
     assert(stringBetweenKeywordsProc('abc de ef gh xyz', "abc", "xyz") === 'de ef gh', 'error string between keywords proc')
@@ -70,13 +65,72 @@ const test_stringBetweenKeywords = () => {
     // index test
     const resulte = stringBetweenKeywords('DEFINE INDEX email ON user COLUMNS email, phone, username UNIQUE', ['COLUMNS'], ['UNIQUE'])
     assert( resulte?.trim() === 'email, phone, username', 'unexpected string between keywords for define index test');
-}
+})
 
-const test_functions_validation = () => {
-
+Deno.test("Validation", () => {
     logEvent("test", "functions_validation", `isEmail`);
     assert(is.email("joe.soap@abc.co.za"))
     assert(!is.email("thisisnotanemail"))
-    
-}
+})
 
+Deno.test("INFO", async () => {
+    const instance = new SurrealDBTS({ log: 'debug' });
+    const output = await instance.processQueries<[SR<iKVinfo>]>({ queries: ["INFO FOR KV;"] })
+    assert(output[0].result.ns, "Expected result.ns data")
+    // const outputb = await instance.processQuery({ query: "USE NS features DB platform;" })
+    // console.log(outputb);
+})
+
+
+Deno.test("Quick Start", async () => {
+    const instance = new SurrealDBTS({ log: 'debug' });
+
+    const tests: ITests[] = [
+        {
+            q: "USE NS test DB test;",
+            t: (out: SR) => {
+                assert(out.status === "OK", "Error with USE NS test DB test")
+            }
+        },
+        {
+            q: "CREATE account SET name = 'ACME Inc', created_at = time::now();",
+            t: (out: SR<any>) => {
+                assert(out.result[0].created_at != "time::now()", "Error with time::now() on CREATE .. SET")
+            }
+        },
+        {
+            q: "SELECT * FROM account;",
+            t: (out: SR<any>) => {
+                assert(out.result.length != 0, "Could not SELECT * FROM account")
+            }
+        },
+        {
+            q: `CREATE author:john SET
+            name.first = 'John',
+            name.last = 'Adams',
+            name.full = string::join(' ', name.first, name.last),
+            age = 29,
+            admin = true,
+            signup_at = time::now()
+        ;`,
+        t: (out) => {
+            console.log(out);
+        }
+        }
+    ]
+
+    const output = await instance.processQueries<[SR, SR<any>]>({ queries: tests.map(t => t.q) })
+
+    tests.forEach((t, index) => {
+        logEvent("test", "test.ts", t.q)
+        t.t(output[index]);
+    });
+
+})
+
+
+
+interface ITests {
+    q:string,
+    t: (out: SR<any>) => void
+}

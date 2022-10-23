@@ -9,6 +9,11 @@ export interface Index {
     fields: string[]
 }
 
+export interface IndexData {
+    id: string
+    value: any
+}
+
 export const parseIndex = (definitionRaw: string) => {
     // DEFINE INDEX @name ON [ TABLE ] @table [ FIELDS | COLUMNS ] @fields [ UNIQUE ]
     const words = definitionRaw.split(' ');

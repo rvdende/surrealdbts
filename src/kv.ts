@@ -1,20 +1,30 @@
 import { Session } from "./iam.ts";
-import { kv } from "./index.ts";
+
 import { KVStorageEngine, initializeStorage } from "./kv_storage.ts";
-import { KVTable } from "./kv_table.ts";
+import { KVTable } from "./tb.ts";
 import { logEvent } from "./log.ts";
 import { NS } from './ns.ts';
 import { processTable } from "./process_table.ts";
+import { DB } from "./db.ts";
+import { KVStorageMemory } from "./kv_storage_memory.ts";
+import { SurrealDBTS } from "./surrealdbts.ts";
 
 export interface KVConstructorOptions {
     storageArgs: string
 }
 
 export class KV {
-    private storage: KVStorageEngine;
+    instance: SurrealDBTS
+    storage: KVStorageEngine;
 
-    constructor(options: KVConstructorOptions) {
-        this.storage = initializeStorage(options);
+    constructor(instance: SurrealDBTS, options?: KVConstructorOptions) {
+        this.instance = instance;
+
+        if (options) {
+            this.storage = initializeStorage(options);
+        } else {
+            this.storage = new KVStorageMemory();
+        }
     }
 
     async infoForKV() {
@@ -115,6 +125,16 @@ export class KV {
         return dbInfo;
     }
 
+    async getDBSession(session: Session) {
+        let dbInfo = await this.getDB(session.ns, session.db);
+
+        return new DB(this.instance, {
+            dbInfo,
+            ns: session.ns,
+            dbName: session.db
+        });
+    }
+
     async defineTB({ tb, definition, ns, db }: {
         /** table name */
         tb: string,
@@ -147,7 +167,14 @@ export class KV {
 
     async getTable(session: Session, tableName: string) {
         const tbInfo = await this.infoForTable({ tb: tableName, ns: session.ns, db: session.db });
-        const tbobj = new KVTable({ tbInfo, tableName, session });
+        
+        const tbobj = new KVTable(this.instance,{
+            tbInfo,
+            tableName,
+            nsName: session.ns,
+            dbName: session.db
+        });
+
         return tbobj;
     }
 
@@ -230,12 +257,13 @@ export class KV {
 
         // PROCESS FIELDS, INDEXES AND EVENTS...
 
-        const kvtable = await kv.getTable(session, tb);
+        const kvtable = await this.getTable(session, tb);
 
         const processedFieldsData = await processTable({
             session,
             dataIn: data,
-            kvtable
+            kvtable,
+            kv: this
         })
 
 
@@ -267,6 +295,7 @@ export class KV {
     }
 
     async select<T>({ projections, targets, ns, db }: {
+
         projections: string,
         /** table? */
         targets: string,
@@ -281,7 +310,7 @@ export class KV {
         if (!tbInfo) throw new Error('Table does not exist.');
 
         const rows = await (await Promise.all(Object.keys(tbInfo._rowids).map(id => this.storage.get(`_row:${ns}:${db}:${tb}:${id}`))))
-            .filter( r => r !== undefined)
+            .filter(r => r !== undefined)
 
 
         return rows as T[];
@@ -316,4 +345,9 @@ export interface iTBinfo {
     fd: tDefinitions,
     ft: tDefinitions,
     ix: tDefinitions
+}
+
+export interface Entry {
+    id: string
+    [index: string]: unknown
 }

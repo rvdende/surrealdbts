@@ -1,4 +1,4 @@
-import { SR } from "./surrealclient.ts";
+import { SR } from "../src/index.ts";
 
 export function logTest(cmds: string[], results: SR<any>[]) {
 	cmds.forEach((value, index) => {

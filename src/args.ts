@@ -18,3 +18,10 @@ export const getArgs = () => {
     args.port = args.bind ? parseInt(args.bind.split(':').at(-1) || "8000") : 8000
     return args;
 }
+
+export const getArgsFromCLI = () => {
+    const args = parse(Deno.args) as Args;
+    args.storageArgs = (args._.at(-1) === 'start') ? 'memory' : args._.at(-1) as string
+    args.port = args.bind ? parseInt(args.bind.split(':').at(-1) || "8000") : 8000
+    return args;
+}

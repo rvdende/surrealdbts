@@ -3,6 +3,7 @@
 
 // https://medium.com/deno-the-complete-reference/handling-base64-data-in-deno-af200e494265
 import { encode, decode } from "https://deno.land/std/encoding/base64.ts"
+import { SR } from "../src/interfaces/interfaces_main.ts";
 import { LogSeverity } from "../src/log.ts";
 import { logEvent } from "../src/log.ts";
 import { TestConfig } from "./test_config.ts";
@@ -204,16 +205,10 @@ type WithId<T> = EnhancedOmit<T, "id"> & {
 
 export declare type EnhancedOmit<TRecordOrUnion, KeyUnion> = string extends keyof TRecordOrUnion ? TRecordOrUnion : TRecordOrUnion extends any ? Pick<TRecordOrUnion, Exclude<keyof TRecordOrUnion, KeyUnion>> : never;
 
-/** Surreal Result */
-export interface SR<T = null> {
-    result: T
-    status: "OK" | string
-    time: string
-    detail?: string
-}
+
 
 /** Surreal KV info */
-export interface KV {
+export interface iKVinfo {
     ns: {
         /** "DEFINE NAMESPACE namespace" */
         [index: string]: string
@@ -226,7 +221,7 @@ export const generateAuthorizationHeader = (user: string, pass: string) => {
 }
 
 export const rest = {
-    query: async function query<T>(config: TestConfig, query: string) {
+    query: async function query<T = SR<any>[]>(config: TestConfig, query: string) {
         const { user, NS, DB } = config;
 
         const authorization = generateAuthorizationHeader(config.user, config.pass);

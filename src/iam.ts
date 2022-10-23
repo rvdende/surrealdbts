@@ -42,12 +42,14 @@ export class Session implements ISession {
     db!: string
     authorization!: string
 
-    constructor(options: Partial<ISession>) {
-        if (options.authorization) this.authorization = options.authorization;
-        if (options.user) this.user = options.user;
-        if (options.token) this.token = options.token;
-        if (options.ns) this.ns = options.ns;
-        if (options.db) this.db = options.db;
+    constructor(options?: Partial<ISession>) {
+        if (options) {
+            if (options.authorization) this.authorization = options.authorization;
+            if (options.user) this.user = options.user;
+            if (options.token) this.token = options.token;
+            if (options.ns) this.ns = options.ns;
+            if (options.db) this.db = options.db;
+        }
     }
 
     useNs(ns: string) {

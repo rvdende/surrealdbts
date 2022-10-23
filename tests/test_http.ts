@@ -1,21 +1,38 @@
 import { setRaw } from "https://deno.land/std@0.153.0/_deno_unstable.ts";
 import { assert } from "https://deno.land/std@0.157.0/_util/assert.ts";
-import { iTBinfo } from "../src/kv.ts";
+import { SR } from "../src/index.ts";
+import { iDBinfo, iTBinfo } from "../src/kv.ts";
 import { logEvent } from "../src/log.ts";
 import { logTest } from "./logtest.ts";
-import { KV, SR, rest } from './surrealclient.ts'
+import { rest, iKVinfo } from './surrealclient.ts'
 import { TestConfig } from './test_config.ts'
 
 
 export const httptest = async (config: TestConfig) => {
 	try {
-		logEvent("test", "test_http::httptest", `REMOVE NAMESPACE testing;`);
-		await rest.query<[SR<"">]>(config, `REMOVE NAMESPACE testing;`).then((result) => {
-			if (result[0].status !== "OK") throw new Error('Expected OK');
+
+		///////////////////////////////////////////////////////////////////////////////////////////////////
+		// CLEAR THE DB BEFORE ALL TESTS.
+
+		const cleardbcmds = [
+			"REMOVE NAMESPACE testing;",
+			"REMOVE NAMESPACE features;",
+			"INFO FOR KV;"]
+		logEvent("test", "test_http::httptest", cleardbcmds.join(""));
+
+		await rest.query<[SR, SR, SR<iKVinfo>]>(config, cleardbcmds.join("")).then((r) => {
+			// logTest(cleardbcmds, r);
+			assert(r[0].status == "OK");
+			assert(r[1].status == "OK");
+			assert(r[2].result.ns.testing == undefined);
+			assert(r[2].result.ns.features == undefined);
 		});
 
+		///////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 		logEvent("test", "test_http::httptest", "INFO FOR KV;");
-		await rest.query<[SR<KV>]>(config, "INFO FOR KV;").then(
+		await rest.query<[SR<iKVinfo>]>(config, "INFO FOR KV;").then(
 			(r) => {
 				if (!r[0].result.ns) throw Error('Expected NS data.')
 				if (r[0].result.ns["testing"]) throw Error('NS should be deleted.')
@@ -92,7 +109,7 @@ export const httptest = async (config: TestConfig) => {
 			assert(r[5].result[0].name === "Test User", 'Missing entry data name')
 		});
 
-
+		//////////////////// TEST ADDING A UNIQUE INDEX AFTER THERE IS A DUPLICATE ALREADY.
 		// -- Add a unique index on the email field to prevent duplicate values
 		interface testUserEntry {
 			name: string
@@ -111,7 +128,7 @@ export const httptest = async (config: TestConfig) => {
 		}];
 
 
-		const cmds = [
+		const cmds_test_index = [
 			`USE NS features DB platform; `,
 			`CREATE user SET name = \"${testColumnUnique[0].name}\", email = \"${testColumnUnique[0].email}\";`,
 			`CREATE user SET name = \"${testColumnUnique[1].name}\", email = \"${testColumnUnique[1].email}\";`,
@@ -119,20 +136,42 @@ export const httptest = async (config: TestConfig) => {
 			`DEFINE INDEX email ON TABLE user COLUMNS email UNIQUE;`
 		]
 
-		await rest.query<[SR, SR, SR<testUserEntry[]>, SR<testUserEntry[]>, SR<testUserEntry[]>]>(config, cmds.join(""))
+		await rest.query<[SR, SR<testUserEntry[]>, SR<testUserEntry[]>, SR<testUserEntry[]>, SR]>(config, cmds_test_index.join(""))
 			.then(r => {
-				logTest(cmds, r);
+				// logTest(cmds_test_index, r);
+				assert(r[0].status === "OK"); // USE NS ...
 
-				// if (r[4].status !== 'ERR') console.log(r);
-				// assert(r[0].status === 'OK', `Expected OK on use ns db. ERR: ${r[0].detail}`)
-				// assert(r[1].status === 'OK', `Expected OK on define index with unique. ERR: ${r[1].detail}`)
-				// assert(r[2].status === 'OK', `Expected OK on create user with email. ERR: ${r[2].detail}`)
-				// assert(r[2].result[0].name === testColumnUnique[0].name, 'Error creating user entry 0');
-				// assert(r[3].result[0].name === testColumnUnique[1].name, 'Error creating user entry 1');
-				// assert(r[4].result === undefined, 'Expected no result on duplicate entry.')
-				// assert(r[4].status === "ERR", 'Expected status to be ERR because of unique column.')
-				// assert(r[4].detail?.startsWith(`Database index \`email\` already contains "${testColumnUnique[0].email}", with record \`user:`))
+				assert(r[1].status === "OK"); // CREATE 0
+				assert(r[2].status === "OK"); // CREATE 1
+				assert(r[3].status === "OK"); // CREATE 2
+
+				assert(r[1].result[0].name === testColumnUnique[0].name, 'Error creating user entry 0');
+				assert(r[2].result[0].name === testColumnUnique[1].name, 'Error creating user entry 0');
+				assert(r[3].result[0].name === testColumnUnique[2].name, 'Error creating user entry 1');
+
+				assert(r[4].status === "ERR", 'Expected status to be ERR because of unique column.')
+				assert(r[4].detail?.startsWith(`Database index \`email\` already contains "${testColumnUnique[0].email}", with record \`user:`))
 			})
+
+
+		///////////////////////// TEST ADDING AN INDEX AND THEN A DUPLICATE
+
+		const cmds_test_index2 = [
+			`USE NS features DB platform; `,
+			`REMOVE TABLE user;`,
+			`INFO FOR DB;`, // check if it did remove.
+			`CREATE user SET name = \"${testColumnUnique[0].name}\", email = \"${testColumnUnique[0].email}\";`,
+			`CREATE user SET name = \"${testColumnUnique[1].name}\", email = \"${testColumnUnique[1].email}\";`,
+			`DEFINE INDEX email ON TABLE user COLUMNS email UNIQUE;`,
+			`CREATE user SET name = \"${testColumnUnique[2].name}\", email = \"${testColumnUnique[2].email}\";`
+		]
+
+		await rest.query<[SR, SR, SR<iDBinfo>]>(config, cmds_test_index2.join("")).then(r => {
+			logTest(cmds_test_index2, r);
+			assert(r[0].status === "OK"); // USE NS ...
+			assert(r[1].status === "OK" && r[1].result === null, "Error removing table user"); // REMOVE TABLE user;		
+			assert(r[2].status === "OK" && r[2].result.tb.user === undefined, "Did not remove the user table")
+		})
 
 
 
@@ -142,3 +181,10 @@ export const httptest = async (config: TestConfig) => {
 	}
 }
 
+
+
+
+interface SurrealTest {
+	query: string,
+
+}

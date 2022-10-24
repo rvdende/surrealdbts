@@ -1,11 +1,12 @@
 import { assert } from "https://deno.land/std@0.157.0/_util/assert.ts"
 
 import { SurrealDBTS } from "./src/surrealdbts.ts";
-import { iKVinfo } from "./tests/surrealclient.ts";
+import { iKVinfo, rest } from "./tests/surrealclient.ts";
 import { SR } from './src/index.ts'
 import { devLog, logEvent } from "./src/log.ts";
-import { stringBetweenKeywordsProc,stringBetweenKeywords, parseField } from "./src/process_table.ts";
+import { stringBetweenKeywordsProc, stringBetweenKeywords, parseField } from "./src/process_table.ts";
 import { is } from "./src/functions/validation.ts";
+import { configs } from "./tests/test_config.ts";
 
 
 Deno.test("testFields", () => {
@@ -54,17 +55,17 @@ Deno.test("StringBetweenKeywords", () => {
     const resultc = stringBetweenKeywords(teststring, ["FOO"], ["NOMATCH"]);
     assert((resultc === 'some important content BAR asdf'), "stringBetweenKeywords() first matches failed.")
 
-     // first matches
-     const resultc2 = stringBetweenKeywords(teststring, ["FOO"]);
-     assert((resultc2 === 'some important content BAR asdf'), "stringBetweenKeywords() first matches failed.")
- 
+    // first matches
+    const resultc2 = stringBetweenKeywords(teststring, ["FOO"]);
+    assert((resultc2 === 'some important content BAR asdf'), "stringBetweenKeywords() first matches failed.")
+
     // last matches
     const resultd = stringBetweenKeywords(teststring, ["NOMATCH"], ["BAR"]);
     assert((resultd === undefined), "stringBetweenKeywords() last matches failed.");
 
     // index test
     const resulte = stringBetweenKeywords('DEFINE INDEX email ON user COLUMNS email, phone, username UNIQUE', ['COLUMNS'], ['UNIQUE'])
-    assert( resulte?.trim() === 'email, phone, username', 'unexpected string between keywords for define index test');
+    assert(resulte?.trim() === 'email, phone, username', 'unexpected string between keywords for define index test');
 })
 
 Deno.test("Validation", () => {
@@ -76,9 +77,9 @@ Deno.test("Validation", () => {
 Deno.test("INFO", async () => {
     const instance = new SurrealDBTS({ log: 'debug' });
     const output = await instance.processQueries<[SR<iKVinfo>]>({ queries: ["INFO FOR KV;"] })
+
     assert(output[0].result.ns, "Expected result.ns data")
-    // const outputb = await instance.processQuery({ query: "USE NS features DB platform;" })
-    // console.log(outputb);
+    const outputb = await instance.processQuery({ query: "USE NS features DB platform;" })
 })
 
 
@@ -105,6 +106,12 @@ Deno.test("Quick Start", async () => {
             }
         },
         {
+            q: "DELETE author;",
+            t: (out) => {
+                assert(out.status === "OK", "Could not clear author;")
+            }
+        },
+        {
             q: `CREATE author:john SET
             name.first = 'John',
             name.last = 'Adams',
@@ -113,24 +120,39 @@ Deno.test("Quick Start", async () => {
             admin = true,
             signup_at = time::now()
         ;`,
-        t: (out) => {
-            console.log(out);
-        }
+            t: (out, color) => {
+                devLog(out, color)
+            }
+        },
+        {
+            q: "UPDATE author:john SET name.first = 'Joe'",
+            t: (out, color) => {
+                devLog(out, color)
+            }
         }
     ]
 
     const output = await instance.processQueries<[SR, SR<any>]>({ queries: tests.map(t => t.q) })
 
+    // runs against the official surreal db.
+    const outputReference = await rest.query(configs[0], tests.map(t => t.q).join(""));
+
+    // console.log({ outputReference });
+    // console.log({ output })
+
+
     tests.forEach((t, index) => {
+
         logEvent("test", "test.ts", t.q)
-        t.t(output[index]);
+        t.t(output[index], "red");
+        t.t(outputReference[index], "green");
+        assert(output[index].status === outputReference[index].status, `Error when calling "${t.q}" ERROR: Status should match.`);
     });
 
 })
 
 
-
 interface ITests {
-    q:string,
-    t: (out: SR<any>) => void
+    q: string,
+    t: (out: SR<any>, color?: string) => void
 }

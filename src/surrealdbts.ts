@@ -137,6 +137,119 @@ export class SurrealDBTS {
 
         }
 
+        if (statement[0] === 'LET') {
+            throw Error('LET not implemented yet.');
+        }
+
+        if (statement[0] === 'BEGIN') {
+            throw Error('BEGIN not implemented yet.');
+        }
+
+        if (statement[0] === 'CANCEL') {
+            throw Error('CANCEL not implemented yet.');
+        }
+
+        if (statement[0] === 'COMMIT') {
+            throw Error('COMMIT not implemented yet.');
+        }
+
+        if (statement[0] === 'IF') {
+            throw Error('IF ELSE not implemented yet.');
+        }
+
+        if (statement[0] === "SELECT") {
+            const projections = statement[1];
+            if (statement[2] !== "FROM") throw new Error('Expected keyword FROM');
+            const targets = statement[3];
+
+            // TODO https://surrealdb.com/docs/surrealql/statements/select
+            // needs more keywords implemented.
+            const result = await this.kv.select({
+                projections,
+                targets,
+                ns: this.session.ns,
+                db: this.session.db
+            })
+
+            logEvent("trace", `process::select`, `${JSON.stringify(result)}`);
+
+            return { result: result }
+        }
+
+        if (statement[0] === 'INSERT') {
+            throw Error('INSERT not implemented yet.');
+        }
+
+        // https://surrealdb.com/docs/surrealql/statements/create
+        if (statement[0] === "CREATE") {
+            const targets = statement[1];
+            const { id, tb } = parseIdFromThing(targets)
+
+            devLog(id, "yellow");
+
+            let data: any = {};
+
+            
+
+            // CREATE @targets CONTENT
+            if (statement[2] === 'CONTENT') {
+                data = extractJSON(query, "CONTENT", "RETURN");
+            }
+
+            // CREATE @targets SET
+            if (statement[2] === 'SET') {
+                data = extractSetData(targets, query)
+            }
+
+            data.id = `${tb}:${id}`;
+
+            devLog(data, "yellow");
+
+            // if (!data.id) data.id = generateThingId(targets);
+
+            const result = await this.kv.createContent({
+                targets: statement[1],
+                data,
+                ns: this.session.ns,
+                db: this.session.db,
+                session: this.session
+            });
+
+            logEvent("trace", `process::create content`, `${query} ${JSON.stringify(statement)}`);
+            return { result: [result] };
+
+        }
+
+        // https://surrealdb.com/docs/surrealql/statements/update
+        if (statement[0] === 'UPDATE') {
+
+            if (statement[2] === 'CONTENT') {
+                const data = extractJSON(query, "CONTENT", "RETURN");
+                const result = await this.kv.createContent({
+                    targets: statement[1],
+                    data,
+                    ns: this.session.ns,
+                    db: this.session.db,
+                    session: this.session
+                });
+
+                logEvent("trace", `process::update`, `${query} ${JSON.stringify(statement)}`);
+                return { result: [result] };
+            }
+        }
+
+        if (statement[0] === 'RELATE') {
+            throw Error('RELATE not implemented yet.');
+        }
+
+        
+        if (statement[0] === 'DELETE') {
+
+            const table = await this.kv.getTable(this.session, statement[1]);
+            const result = await table.clearRows();
+            return { result };
+        }
+
         // https://surrealdb.com/docs/surrealql/statements/define
         if (statement[0] === 'DEFINE') {
             const name = statement[2];
@@ -240,46 +353,7 @@ export class SurrealDBTS {
             logEvent("error", "process.ts::define::field")
         }
 
-        if (statement[0] === 'INFO') {
-            // INFO FOR
-            if (statement[1] === 'FOR') {
-                // INFO FOR KV
-                if (statement[2] === 'KV') {
-                    const result = await this.kv.infoForKV();
-                    logEvent("trace", `process.ts processQuery`, `${query} ${JSON.stringify(result)}`);
-                    return { result }
-                }
-
-                // INFO FOR NS
-                if (statement[2] === 'NS') {
-                    if (!this.session.ns) throw Error('Select namespace first.');
-
-                    const result = await this.kv.infoForNS({ ns: this.session.ns });
-                    logEvent("trace", `process.ts processQuery`, `${query} ${JSON.stringify(result)}`);
-                    return { result }
-                }
-
-                // INFO FOR DB
-                if (statement[2] === 'DB') {
-                    if (!this.session.ns) throw Error('Select namespace first.');
-                    if (!this.session.db) throw Error('Select db first.');
-                    const result = await this.kv.infoForDB({ ns: this.session.ns, db: this.session.db });
-                    logEvent("trace", `process.ts processQuery`, `${query} ${JSON.stringify(result)}`);
-                    return { result }
-                }
-
-                // INFO FOR TABLE
-                if (statement[2] === 'TABLE') {
-                    if (!this.session.ns) throw Error('Select namespace first.');
-                    if (!this.session.db) throw Error('Select db first.');
-                    const result = clone(await this.kv.infoForTable({ tb: statement[3], ns: this.session.ns, db: this.session.db }));
-                    delete result._rowids
-                    logEvent("trace", `process.ts processQuery`, `${query} ${JSON.stringify(result)}`);
-                    return { result }
-                }
-            }
-
-        }
+ 
 
         // https://surrealdb.com/docs/surrealql/statements/remove
         if (statement[0] === 'REMOVE') {
@@ -337,78 +411,55 @@ export class SurrealDBTS {
             }
         }
 
-        if (!this.session.ns) throw Error('Select namespace first.');
-        if (!this.session.db) throw Error('Select db first.');
+        
 
-        // https://surrealdb.com/docs/surrealql/statements/create
-        if (statement[0] === "CREATE") {
-            const targets = statement[1];
-            const { id, tb } = parseIdFromThing(targets)
 
-            let data: any = {};
 
-            // CREATE @targets CONTENT
-            if (statement[2] === 'CONTENT') {
-                data = extractJSON(query, "CONTENT", "RETURN");
+
+        if (statement[0] === 'INFO') {
+            // INFO FOR
+            if (statement[1] === 'FOR') {
+                // INFO FOR KV
+                if (statement[2] === 'KV') {
+                    const result = await this.kv.infoForKV();
+                    logEvent("trace", `process.ts processQuery`, `${query} ${JSON.stringify(result)}`);
+                    return { result }
+                }
+
+                if (!this.session.ns) throw Error('Select namespace first.');
+                if (!this.session.db) throw Error('Select db first.');
+
+                // INFO FOR NS
+                if (statement[2] === 'NS') {
+                    if (!this.session.ns) throw Error('Select namespace first.');
+
+                    const result = await this.kv.infoForNS({ ns: this.session.ns });
+                    logEvent("trace", `process.ts processQuery`, `${query} ${JSON.stringify(result)}`);
+                    return { result }
+                }
+
+                // INFO FOR DB
+                if (statement[2] === 'DB') {
+                    if (!this.session.ns) throw Error('Select namespace first.');
+                    if (!this.session.db) throw Error('Select db first.');
+                    const result = await this.kv.infoForDB({ ns: this.session.ns, db: this.session.db });
+                    logEvent("trace", `process.ts processQuery`, `${query} ${JSON.stringify(result)}`);
+                    return { result }
+                }
+
+                // INFO FOR TABLE
+                if (statement[2] === 'TABLE') {
+                    if (!this.session.ns) throw Error('Select namespace first.');
+                    if (!this.session.db) throw Error('Select db first.');
+                    const result = clone(await this.kv.infoForTable({ tb: statement[3], ns: this.session.ns, db: this.session.db }));
+                    delete result._rowids
+                    logEvent("trace", `process.ts processQuery`, `${query} ${JSON.stringify(result)}`);
+                    return { result }
+                }
             }
-
-            // CREATE @targets SET
-            if (statement[2] === 'SET') {
-                data = extractSetData(targets, query)
-            }
-
-            devLog(data);
-
-            if (!data.id) data.id = generateThingId(targets);
-
-            const result = await this.kv.createContent({
-                targets: statement[1],
-                data,
-                ns: this.session.ns,
-                db: this.session.db,
-                session: this.session
-            });
-
-            logEvent("trace", `process::create content`, `${query} ${JSON.stringify(statement)}`);
-            return { result: [result] };
 
         }
 
-        if (statement[0] === "SELECT") {
-            const projections = statement[1];
-            if (statement[2] !== "FROM") throw new Error('Expected keyword FROM');
-            const targets = statement[3];
-
-            // TODO https://surrealdb.com/docs/surrealql/statements/select
-            // needs more keywords implemented.
-            const result = await this.kv.select({
-                projections,
-                targets,
-                ns: this.session.ns,
-                db: this.session.db
-            })
-
-            logEvent("trace", `process::select`, `${JSON.stringify(result)}`);
-
-            return { result: result }
-        }
-
-        if (statement[0] === 'UPDATE') {
-
-            if (statement[2] === 'CONTENT') {
-                const data = extractJSON(query, "CONTENT", "RETURN");
-                const result = await this.kv.createContent({
-                    targets: statement[1],
-                    data,
-                    ns: this.session.ns,
-                    db: this.session.db,
-                    session: this.session
-                });
-
-                logEvent("trace", `process::update`, `${query} ${JSON.stringify(statement)}`);
-                return { result: [result] };
-            }
-        }
 
         if (statement[0] === 'LIVE') {
             const liveid = crypto.randomUUID();

@@ -180,13 +180,36 @@ export const extractSetData = (targets: string, query: string) => {
 
     // TODO PARSE string::join()...
     // perhaps use eval ?
-    console.log("--------------------------------")
+    // console.log("--------------------------------")
 
     if (!qstr) return {};
     let busyWithField = true;
     let field = "";
     let value = "";
     let ignoreCommas = false;
+
+    const parseValue = (valIn: string) => {
+
+        if (valIn.startsWith("\'") && valIn.endsWith("\'")) {
+            return valIn.slice(1,-1);
+        }
+
+        if (valIn.startsWith("\"") && valIn.endsWith("\"")) {
+            return valIn.slice(1,-1);
+        }
+
+        if (valIn.indexOf("::") >= 0) {
+            //
+            return valIn;
+        } else {
+            try {
+
+                return JSON.parse(valIn);
+            } catch (err) {
+                return valIn;
+            }
+        }
+    }
 
     const parseChar = (c: string) => {
         if (c === "(") {
@@ -198,14 +221,15 @@ export const extractSetData = (targets: string, query: string) => {
         }
 
         if (!ignoreCommas && c === ',') {
-            data[field.trim()] = value.trim();
+
+            data[field.trim()] = parseValue(value.trim());
             field = "";
             value = "";
             busyWithField = true;
             return;
         }
 
-        
+
 
         if (c === "=") {
             busyWithField = false;
@@ -229,10 +253,10 @@ export const extractSetData = (targets: string, query: string) => {
         // devLog({field, value, data});
     }
 
-    devLog(qstr, "red");
+    // devLog(qstr, "red");
 
-    console.log(data);
-    console.log("--------------------------------")
+    // console.log(data);
+    // console.log("--------------------------------")
 
 
     // let statement = query.split(" ");

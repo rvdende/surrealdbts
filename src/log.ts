@@ -59,5 +59,5 @@ function formatDate(date: Date) {
 export function devLog(input:any, color?:string) {
 
     let c = color || "yellow";
-    console.log(`%c${JSON.stringify(input)}`,`color: ${c}`)
+    console.log(`%c${JSON.stringify(input, null,2)}`,`color: ${c}`)
 }

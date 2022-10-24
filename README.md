@@ -55,5 +55,5 @@ deno run --allow-all --watch tests/index.ts 1
 # Deno Test
 
 ```
-deno test --allow-hrtime --watch test.ts
+deno test --allow-all --watch test.ts
 ```

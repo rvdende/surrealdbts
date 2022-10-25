@@ -6,6 +6,7 @@ import { generateThingId } from "./process.ts";
 import { extractJSON, extractSetData } from "./process_table.ts";
 import { clone } from "./utils.ts";
 
+import { merge } from 'https://raw.githubusercontent.com/lodash/lodash/4.17.21-es/lodash.js';
 export class SurrealDBTS {
     kv: KV;
     session: Session;
@@ -70,24 +71,21 @@ export class SurrealDBTS {
                 console.error(err);
                 console.log();
 
-                results.push({
+                results.push(clone({
                     status: "ERR",
                     detail: err.message,
                     time: `${((performance.now() - starttime) * 1000).toFixed(2)}µs`
-                })
-
+                }));
             });
 
             if (proc) {
                 result = proc.result;
 
-                results.push({
+                results.push(clone({
                     time: `${((performance.now() - starttime) * 1000).toFixed(2)}µs`,
                     status: "OK",
                     result,
-
-
-                })
+                }));
             }
         }
 
@@ -198,7 +196,7 @@ export class SurrealDBTS {
 
             // CREATE @targets SET
             if (statement[2] === 'SET') {
-                data = extractSetData(targets, query)
+                data = await extractSetData(targets, query)
             }
 
             data.id = `${tb}:${id}`;
@@ -235,6 +233,37 @@ export class SurrealDBTS {
 
                 logEvent("trace", `process::update`, `${query} ${JSON.stringify(statement)}`);
                 return { result: [result] };
+            }
+
+
+
+            if (statement[2] === 'MERGE') {
+                throw new Error('UPDATE MERGE not implemented yet')
+            }
+
+            if (statement[2] === 'PATCH') {
+                throw new Error('UPDATE PATCH not implemented yet')
+            }
+
+            if (statement[2] === 'SET') {
+                
+                const targets = statement[1];
+                const { id, tb } = parseIdFromThing(targets)
+                const newdata = await extractSetData(targets, query);
+
+                // find existing row.
+                const table = await this.kv.getTable(this.session, tb);
+
+                const rows: any[] = await table.select(id);
+
+                const updatedrows = rows.map(r => {
+                    return merge(r, newdata)
+                })
+
+
+
+                return { result: updatedrows};
+                
             }
         }
 

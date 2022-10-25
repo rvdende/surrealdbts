@@ -7,7 +7,7 @@ import { SurrealDBTS } from "./surrealdbts.ts";
 
 
 export class KVTable {
-    
+
     // session: Session;
     instance: SurrealDBTS
     tableName: string;
@@ -22,7 +22,7 @@ export class KVTable {
 
     nsName: string
     dbName: string
-    
+
 
     constructor(instance: SurrealDBTS, options: {
         tbInfo: iTBinfo,
@@ -43,7 +43,7 @@ export class KVTable {
         this.dbName = options.dbName;
         this.nsName = options.nsName;
         this.tableName = options.tableName;
-        
+
     }
 
     /** define data on a table description */
@@ -78,7 +78,7 @@ export class KVTable {
         if (index.unique) {
             // create unique index or error.
 
-            const rows: Entry[] = await this.instance.processQuery({ query: `SELECT * FROM ${this.tableName};`}).then(r => r.result);
+            const rows: Entry[] = await this.instance.processQuery({ query: `SELECT * FROM ${this.tableName};` }).then(r => r.result);
 
 
 
@@ -135,5 +135,11 @@ export class KVTable {
         // first remove all rows etc..
         await this.instance.kv.storage.delete(Object.keys(this.tbInfo._rowids).map(id => `_row:${this.nsName}:${this.dbName}:${this.tableName}:${id}`))
         return null;
+    }
+
+    async select(id: string) {
+        const rows = await (await Promise.all(Object.keys(this.tbInfo._rowids).map(id => this.instance.kv.storage.get(`_row:${this.nsName}:${this.dbName}:${this.tableName}:${id}`))))
+            .filter(r => r !== undefined);
+        return rows;
     }
 }

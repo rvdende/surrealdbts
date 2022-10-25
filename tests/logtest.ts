@@ -8,6 +8,6 @@ export function logTest(cmds: string[], results: SR<any>[]) {
 
 		const color = (res.status === "OK") ? "color: green" : "color: red";
 
-		console.log(`%c${logCommand} = ${JSON.stringify(res, null, 2)}`,  color);
+		console.log(`%c${logCommand} = ${JSON.stringify(res, null, 2)}`, color);
 	})
 }

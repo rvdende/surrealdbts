@@ -2,11 +2,15 @@ import { FieldAssert, parseAssertFunction } from "./functions/validation.ts";
 import { Session } from "./iam.ts";
 // import { kv } from "./index.ts";
 import { parseIndex } from "./ix.ts";
-import { KV } from "./kv.ts";
+import { KV, parseIdFromThing } from "./kv.ts";
 import { devLog } from "./log.ts";
 import { generateThingId } from "./process.ts";
 import { KVTable } from "./tb.ts";
 
+// https://www.tutorialspoint.com/safely-setting-object-properties-with-dot-notation-strings-in-javascript
+// https://github.com/lodash/lodash/issues/5411
+import { set } from 'https://raw.githubusercontent.com/lodash/lodash/4.17.21-es/lodash.js';
+import { evalScript } from "./eval.ts";
 
 export const parseField = (definitionRaw: string) => {
     // https://surrealdb.com/docs/surrealql/statements/define
@@ -173,14 +177,14 @@ export const extractJSON = (inputstring: string,
     return parsed;
 }
 
-export const extractSetData = (targets: string, query: string) => {
+export const extractSetData = async (targets: string, query: string) => {
+
+    // we run these at the end.
+    const scriptsToExecute: { path: string, value: any }[] = [];
+
     const data: any = {}
 
     const qstr = stringBetweenKeywords(query, ["SET"]);
-
-    // TODO PARSE string::join()...
-    // perhaps use eval ?
-    // console.log("--------------------------------")
 
     if (!qstr) return {};
     let busyWithField = true;
@@ -188,18 +192,24 @@ export const extractSetData = (targets: string, query: string) => {
     let value = "";
     let ignoreCommas = false;
 
-    const parseValue = (valIn: string) => {
+    const setValue = (object: Object, path: string, value: any) => {
+        if (typeof value === "string" && value.indexOf("::") > 0) {
+            console.log(`adding script to run: ${value}`)
+            scriptsToExecute.push({ path, value });
+        }
+        set(object, path, value) // set using dot notation
+    }
 
+    const parseValue = (valIn: string) => {
         if (valIn.startsWith("\'") && valIn.endsWith("\'")) {
-            return valIn.slice(1,-1);
+            return valIn.slice(1, -1);
         }
 
         if (valIn.startsWith("\"") && valIn.endsWith("\"")) {
-            return valIn.slice(1,-1);
+            return valIn.slice(1, -1);
         }
 
         if (valIn.indexOf("::") >= 0) {
-            //
             return valIn;
         } else {
             try {
@@ -222,14 +232,13 @@ export const extractSetData = (targets: string, query: string) => {
 
         if (!ignoreCommas && c === ',') {
 
-            data[field.trim()] = parseValue(value.trim());
+            // data[field.trim()] = parseValue(value.trim());
+            setValue(data, field.trim(), parseValue(value.trim())) // set using dot notation
             field = "";
             value = "";
             busyWithField = true;
             return;
         }
-
-
 
         if (c === "=") {
             busyWithField = false;
@@ -250,41 +259,18 @@ export const extractSetData = (targets: string, query: string) => {
     for (let char = 0; char < qstr.length; char++) {
         let c = qstr[char]; // character
         parseChar(c);
-        // devLog({field, value, data});
     }
-
-    // devLog(qstr, "red");
-
-    // console.log(data);
-    // console.log("--------------------------------")
+    parseChar(',');
 
 
-    // let statement = query.split(" ");
+    const { id, tb } = parseIdFromThing(targets)
 
-    // statement.slice(3).join(" ").split(',').forEach(field => {
-    //     devLog(field, "blue");
+    data.id = `${tb}:${id}`;
 
-    //     const key = field.split("=")[0].trim();
-    //     try {
-    //         let value = field.split("=")[1].trim();
-
-    //         devLog(value);
-    //         if (value.startsWith("string::join(")) {
-    //             console.log("Found string join!");
-    //             return;
-    //         }
-
-    //         if (value === "time::now()") {
-    //             value = new Date().toISOString()
-    //         }
-    //         data[key] = value.replaceAll("\"", "").replaceAll("'", "");
-    //     } catch (err) {
-    //         data[key] = err.message
-    //     }
-
-    // })
-
-    if (!data.id) data.id = generateThingId(targets);
+    for (var s of scriptsToExecute) {
+        const evalresult = await evalScript(s.value, data);
+        set(data, s.path, evalresult)
+    }
 
     return data;
 }

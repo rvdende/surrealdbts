@@ -7,9 +7,11 @@ import { devLog, logEvent } from "./src/log.ts";
 import { stringBetweenKeywordsProc, stringBetweenKeywords, parseField } from "./src/process_table.ts";
 import { is } from "./src/functions/validation.ts";
 import { configs } from "./tests/test_config.ts";
+import { string } from "./src/functions/string.ts";
 
 
-Deno.test("testFields", () => {
+
+Deno.test("DEFINE FIELD", () => {
     logEvent("test", "fields", `testing parsing of fields`);
 
     const astring = 'DEFINE FIELD age ON person TYPE number ASSERT $value > 0;'
@@ -68,11 +70,17 @@ Deno.test("StringBetweenKeywords", () => {
     assert(resulte?.trim() === 'email, phone, username', 'unexpected string between keywords for define index test');
 })
 
-Deno.test("Validation", () => {
+
+Deno.test("Functions Validation", () => {
     logEvent("test", "functions_validation", `isEmail`);
     assert(is.email("joe.soap@abc.co.za"))
     assert(!is.email("thisisnotanemail"))
 })
+
+// Deno.test("Functions String", () => {
+//     const output = string.join("abc", "def", "efg");
+//     assert(output === "abc def efg", "expected string.join to work");
+// })
 
 Deno.test("INFO", async () => {
     const instance = new SurrealDBTS({ log: 'debug' });
@@ -81,6 +89,7 @@ Deno.test("INFO", async () => {
     assert(output[0].result.ns, "Expected result.ns data")
     const outputb = await instance.processQuery({ query: "USE NS features DB platform;" })
 })
+
 
 
 Deno.test("Quick Start", async () => {
@@ -111,6 +120,14 @@ Deno.test("Quick Start", async () => {
                 assert(out.status === "OK", "Could not clear author;")
             }
         },
+
+        {
+            q: "SELECT * FROM author;",
+            t: (out, ref, color) => {
+                assert(out.result.length === 0, "Expected zero entries")
+            }
+        },
+
         {
             q: `CREATE author:john SET
             name.first = 'John',
@@ -120,16 +137,32 @@ Deno.test("Quick Start", async () => {
             admin = true,
             signup_at = time::now()
         ;`,
-            t: (out, color) => {
-                devLog(out, color)
+            t: (out, ref, color) => {
+                devLog({ out, ref }, color)
+                
+                // assert(out.result[0].admin === true, "admin should be true");
+                // assert(out.result[0].age === 29, "age should be 29");
+                // assert(out.result[0].name.first === "John", "Name should be John")
+                // assert(out.result[0].name.last === "Adams", "Last should be Adams")
+                // assert(out.result[0].name.full === "John Adams", "Expected string::join to work.")
+                // assert(out.result[0].signup_at.slice(0,10) === new Date().toISOString().slice(0,10), "Expected time::now() to work.")
             }
         },
-        {
-            q: "UPDATE author:john SET name.first = 'Joe'",
-            t: (out, color) => {
-                devLog(out, color)
-            }
-        }
+
+        // {
+        //     q: "SELECT * FROM author;",
+        //     t: (out, ref, color) => {
+        //         assert(out.result.length === 1, "Expected only one entry")
+        //     }
+        // },
+
+        // {
+        //     q: "UPDATE author:john SET name.first = 'Joe'",
+        //     t: (out, ref, color) => {
+        //         devLog({ out, ref }, color)
+        //         // assert(out.status === "OK", out.detail)
+        //     }
+        // }
     ]
 
     const output = await instance.processQueries<[SR, SR<any>]>({ queries: tests.map(t => t.q) })
@@ -142,10 +175,10 @@ Deno.test("Quick Start", async () => {
 
 
     tests.forEach((t, index) => {
-
         logEvent("test", "test.ts", t.q)
-        t.t(output[index], "red");
-        t.t(outputReference[index], "green");
+        t.t(outputReference[index], "reference", "green");
+        t.t(output[index], "myimplementation", "red");
+
         assert(output[index].status === outputReference[index].status, `Error when calling "${t.q}" ERROR: Status should match.`);
     });
 
@@ -154,5 +187,5 @@ Deno.test("Quick Start", async () => {
 
 interface ITests {
     q: string,
-    t: (out: SR<any>, color?: string) => void
+    t: (out: SR<any>, reference?: string, color?: string) => void
 }

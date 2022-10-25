@@ -156,8 +156,6 @@ Deno.test("Functions string::words()	Splits a string into an array of separate w
 /////// END functions string
 
 /////// START functions time
-Deno.test("Functions time::", () => { });
-
 Deno.test("Functions time::day()	Extracts the day as a number from a datetime", () => {});
 Deno.test("Functions time::floor()	Rounds a datetime down by a specific duration", () => {});
 Deno.test("Functions time::group()	Groups a datetime by a particular time interval", () => {});
@@ -173,7 +171,6 @@ Deno.test("Functions time::wday()	Extracts the week day as a number from a datet
 Deno.test("Functions time::week()	Extracts the week as a number from a datetime", () => {});
 Deno.test("Functions time::yday()	Extracts the yday as a number from a datetime", () => {});
 Deno.test("Functions time::year()	Extracts the year as a number from a datetime", () => {});
-
 /////// END functions time
 
 

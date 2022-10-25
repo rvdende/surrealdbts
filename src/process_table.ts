@@ -194,7 +194,7 @@ export const extractSetData = async (targets: string, query: string) => {
 
     const setValue = (object: Object, path: string, value: any) => {
         if (typeof value === "string" && value.indexOf("::") > 0) {
-            console.log(`adding script to run: ${value}`)
+            // console.log(`adding script to run: ${value}`)
             scriptsToExecute.push({ path, value });
         }
         set(object, path, value) // set using dot notation

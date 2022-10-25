@@ -9,11 +9,11 @@ export const string = {
         return data.map(d => { if (typeof d !== "string") { return `${d}` } else { return d } }).join("");
     },
     /** Checks whether a string ends with another string */
-    endsWith: (a: string, b: string): boolean => {
-        return a.endsWith(b);
+    endsWith: (a: unknown, b: string): boolean => {
+        return ((typeof a !== "string") ? `${a}` : a).endsWith(b);
     },
     /** Joins strings together with a delimiter */
-    join: (seperator:string, ...data: string[]): string => {
+    join: (seperator: string, ...data: unknown[]): string => {
         return data.join(seperator);
     },
     /** Returns the length of a string */
@@ -25,43 +25,47 @@ export const string = {
         return ((typeof a !== "string") ? `${a}` : a).toLowerCase();
     },
     /** Repeats a string a number of times */
-    repeat: (a: string, times: number): string => {
+    repeat: (a: unknown, times: number): string => {
         return ((typeof a !== "string") ? `${a}` : a).repeat(times);
     },
     /** Replaces an occurence of a string with another string */
-    replace: (a: string, b: string, c: string): string => {
-        return a.replaceAll(b, c);
+    replace: (a: unknown, b: string, c: string): string => {
+        return ((typeof a !== "string") ? `${a}` : a).replaceAll(b, c);
     },
     /** Reverses a string */
-    reverse: (a: string): string => {
-        return ((typeof a !== "string") ? `${a}` : a).split("").reverse().join();
+    reverse: (a: unknown): string => {
+        if (typeof a !== "string") return `${a}`.split("").reverse().join("");
+        return a.split(" ").reverse().join(" ");
     },
     /** Extracts and returns a section of a string */
-    slice: (a: string, from: number, to: number): string => {
-        return ((typeof a !== "string") ? `${a}` : a).slice(from, to);
+    slice: (a: unknown, from: number, to: number): string => {
+        return ((typeof a !== "string") ? `${a}` : a).slice(from, from+to);
     },
     /** Converts a string into human and URL-friendly string */
-    slug: (a: string): string => {
-        return ((typeof a !== "string") ? `${a}` : a).toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
+    slug: (a: unknown): string => {
+
+        
+
+        return ((typeof a !== "string") ? `${a}` : a).toLowerCase().replaceAll(".","-").replace(/ /g, '-').replace(/[^\w-]+/g, '');
     },
     /** Divides a string into an ordered list of substrings */
-    split: (a: string, b: string): string[] => {
+    split: (a: unknown, b: string): string[] => {
         return ((typeof a !== "string") ? `${a}` : a).split(b);
     },
     /** Checks whether a string starts with another string */
-    startsWith: (a: string, b: string): boolean => {
+    startsWith: (a: unknown, b: string): boolean => {
         return ((typeof a !== "string") ? `${a}` : a).startsWith(b);
     },
     /** Removes whitespace from the start and end of a string */
-    trim: (a: string): string => {
+    trim: (a: unknown): string => {
         return ((typeof a !== "string") ? `${a}` : a).trim();
     },
     /** Converts a string to uppercase */
-    uppercase: (a: string): string => {
+    uppercase: (a: unknown): string => {
         return ((typeof a !== "string") ? `${a}` : a).toUpperCase();
     },
     /** Splits a string into an array of separate words */
-    words: (a: string): string[] => {
+    words: (a: unknown): string[] => {
         return ((typeof a !== "string") ? `${a}` : a).split(" ");
     },
 }

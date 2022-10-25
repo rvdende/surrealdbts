@@ -1,6 +1,6 @@
 import { getArgs } from "./args.ts";
 
-export type LogSeverity = "test" | "log" | "error" | "warn" | "info" | "debug" | "trace" | "full";
+export type LogSeverity = "none" | "test" | "log" | "error" | "warn" | "info" | "debug" | "trace" | "full";
 
 let logSeverityOverride: LogSeverity | undefined = undefined;
 
@@ -9,6 +9,9 @@ export function setLogLevel(severity:LogSeverity) {
 }
 
 export function logEvent(severity: LogSeverity, source: string, message = "") {
+
+    if (logSeverityOverride === "none") return;
+
     const args = getArgs();
 
     const coldate = "color: white; background-color: black;";

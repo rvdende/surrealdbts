@@ -69,7 +69,7 @@ export class SurrealDBTS {
 
                 devLog("======================== ERROR ========================", "red")
                 console.error(err);
-                console.log();
+                // console.log();
 
                 results.push(clone({
                     status: "ERR",
@@ -101,7 +101,7 @@ export class SurrealDBTS {
         // devLog(query, "red");
         // devLog(JSON.stringify(query));
         query = query.split("\n").map(l => l.trim()).join(" ")
-        devLog(query, "green");
+        // devLog(query, "green");
 
         const statement = query.split(' ');
         logEvent("debug", `surrealdbts.ts processQuery`, `Executing: ${query}`);
@@ -183,7 +183,7 @@ export class SurrealDBTS {
             const targets = statement[1];
             const { id, tb } = parseIdFromThing(targets)
 
-            devLog(id, "yellow");
+            // devLog(id, "yellow");
 
             let data: any = {};
 
@@ -201,7 +201,7 @@ export class SurrealDBTS {
 
             data.id = `${tb}:${id}`;
 
-            devLog(data, "yellow");
+            // devLog(data, "yellow");
 
             // if (!data.id) data.id = generateThingId(targets);
 

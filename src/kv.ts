@@ -167,8 +167,8 @@ export class KV {
 
     async getTable(session: Session, tableName: string) {
         const tbInfo = await this.infoForTable({ tb: tableName, ns: session.ns, db: session.db });
-        
-        const tbobj = new KVTable(this.instance,{
+
+        const tbobj = new KVTable(this.instance, {
             tbInfo,
             tableName,
             nsName: session.ns,
@@ -320,6 +320,12 @@ export class KV {
 
 export const parseIdFromThing = (thing: string) => {
     const id = (thing.indexOf(':') > 0) ? thing.split(':')[1] : crypto.randomUUID().split('-').join('');
+    const tb = (thing.indexOf(':') > 0) ? thing.split(':')[0] : thing;
+    return { tb, id }
+}
+
+export const parseIdFromThingNoGenerate = (thing: string) => {
+    const id = (thing.indexOf(':') > 0) ? thing.split(':')[1] : undefined;
     const tb = (thing.indexOf(':') > 0) ? thing.split(':')[0] : thing;
     return { tb, id }
 }

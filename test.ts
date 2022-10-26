@@ -13,6 +13,10 @@ import {
 import { configs } from "./tests/test_config.ts";
 
 import { is, string, time } from "./src/functions/index.ts";
+import { ITests, runTests } from "./tests/testhelpers.ts";
+import { assertEquals } from "https://deno.land/std@0.153.0/testing/asserts.ts";
+
+import { isEqual } from 'https://raw.githubusercontent.com/lodash/lodash/4.17.21-es/lodash.js';
 
 Deno.test("DEFINE FIELD", () => {
   // logEvent("test", "fields", `testing parsing of fields`);
@@ -387,18 +391,17 @@ Deno.test("Functions time::week()	Extracts the week as a number from a datetime"
 });
 
 Deno.test("Functions time::yday()	Extracts the yday as a number from a datetime", () => {
-  
-    assert(
+  assert(
     time.yday("2021-11-01T08:30:17+00:00") === 305,
     "Error with time::yday()",
   );
 });
 
 Deno.test("Functions time::year()	Extracts the year as a number from a datetime", () => {
-    assert(
-        time.year("2021-11-01T08:30:17+00:00") === 2021,
-        "Error with time::year()",
-      );
+  assert(
+    time.year("2021-11-01T08:30:17+00:00") === 2021,
+    "Error with time::year()",
+  );
 });
 
 /////// END functions time
@@ -417,12 +420,8 @@ Deno.test("INFO", async () => {
   });
 });
 
-Deno.test("Quick Start", async () => {
-  const instance = new SurrealDBTS({
-    log: "none",
-  });
-
-  const tests: ITests[] = [
+Deno.test("Quick Start", () =>
+  runTests([
     {
       q: "USE NS test DB test;",
       t: (out: SR) => {
@@ -497,34 +496,82 @@ Deno.test("Quick Start", async () => {
     //         // assert(out.status === "OK", out.detail)
     //     }
     // }
-  ];
+  ]));
 
-  const output = await instance.processQueries<[SR, SR<any>]>({
-    queries: tests.map((t) => t.q),
-  });
+Deno.test("SurrealQL Overview Record IDs", () =>
+  runTests(
+    [
+      {
+        q: `USE NS surrealql DB overview;`,
+        t: (out: SR, ref, color) => {
+          assertEquals(out.status, "OK");
+        },
+      },
+      {
+        q: `DELETE company:surrealdb;`,
+        t: (out: SR, ref, color) => {
+          assertEquals(out.status, "OK");
+        },
+      },
+      {
+        q: `DELETE person;`,
+        t: (out: SR, ref, color) => {
+          assertEquals(out.status, "OK");
+        },
+      },
+      {
+        q: `CREATE person:tobie SET name = 'Tobie';`,
+        t: (out: SR, ref, color) => {
+          assertEquals(out.status, "OK");
+        },
+      },
+      {
+        q: `CREATE person:jaime SET name = 'Jaime';`,
+        t: (out: SR, ref, color) => {
+          assertEquals(out.status, "OK");
+        },
+      },
+      {
+        q: `CREATE company:surrealdb SET name = 'SurrealDB', cofounders = [person:tobie, person:jaime];`,
+        t: (out: SR<any>, ref, color, data) => {
+          assertEquals(out.status, "OK");
+          assertEquals(out.result[0].id, "company:surrealdb");
+          assertEquals(out.result[0].name, "SurrealDB");
+          assertEquals(out.result[0].cofounders[0], "person:tobie");
+          assertEquals(out.result[0].cofounders[1], "person:jaime");
+          assertEquals(out.result[0].cofounders.length, 2);
+          assert(isEqual(data?.reference.result,data?.myimplementation.result));
+        },
+      },
+      {
+        q: `SELECT * FROM company:surrealdb;`,
+        t: (out: SR<any>, ref, color, data) => {
+          assert(out.result.length === 1);
+          assertEquals(out.status, "OK");
+          assertEquals(out.result[0].id, "company:surrealdb");
+          assertEquals(out.result[0].name, "SurrealDB");
+          assertEquals(out.result[0].cofounders[0], "person:tobie");
+          assertEquals(out.result[0].cofounders[1], "person:jaime");
+          assertEquals(out.result[0].cofounders.length, 2);
+          assert(isEqual(data?.reference.result,data?.myimplementation.result), "Results not equal");
+        },
+      },
+      {
+        q: "SELECT cofounders.*.name FROM company:surrealdb;",
+        t: (out: SR<any>, ref, color, data) => {
+          devLog({ out, ref }, color);
 
-  // runs against the official surreal db.
-  const outputReference = await rest.query(
-    configs[0],
-    tests.map((t) => t.q).join(""),
-  );
+          // TODO FIX
 
-  // console.log({ outputReference });
-  // console.log({ output })
-
-  tests.forEach((t, index) => {
-    // logEvent("test", "test.ts", t.q)
-    t.t(outputReference[index], "reference", "green");
-    t.t(output[index], "myimplementation", "red");
-
-    assert(
-      output[index].status === outputReference[index].status,
-      `Error when calling "${t.q}" ERROR: Status should match.`,
-    );
-  });
-});
-
-interface ITests {
-  q: string;
-  t: (out: SR<any>, reference?: string, color?: string) => void;
-}
+          // assert(out.result.length, 1);
+          // assertEquals(out.status, "OK");
+          // assertEquals(out.result[0].id, "company:surrealdb");
+          // assertEquals(out.result[0].name, "SurrealDB");
+          // assertEquals(out.result[0].cofounders[0], "person:tobie");
+          // assertEquals(out.result[0].cofounders[1], "person:jaime");
+          // assertEquals(out.result[0].cofounders.length, 2);
+          // assert(isEqual(data?.reference.result,data?.myimplementation.result), "Results not equal");
+        },
+      }
+    ],
+  ));

@@ -1,6 +1,6 @@
 import { Session } from "./iam.ts";
 import { SR } from "./index.ts";
-import { KV, KVConstructorOptions, parseIdFromThing } from "./kv.ts";
+import { KV, KVConstructorOptions, parseIdFromThing, parseIdFromThingNoGenerate } from "./kv.ts";
 import { devLog, logEvent, LogSeverity, setLogLevel } from "./log.ts";
 import { generateThingId } from "./process.ts";
 import { extractJSON, extractSetData } from "./process_table.ts";
@@ -155,10 +155,20 @@ export class SurrealDBTS {
             throw Error('IF ELSE not implemented yet.');
         }
 
-        if (statement[0] === "SELECT") {
+        if (statement[0] === 'SELECT') {
             const projections = statement[1];
             if (statement[2] !== "FROM") throw new Error('Expected keyword FROM');
             const targets = statement[3];
+
+            const { id, tb } = parseIdFromThingNoGenerate(targets);
+
+            const table = await this.kv.getTable(this.session, tb);
+
+            if (projections === "*" && id !== undefined) {
+                const rows: any[] = await table.select(id);
+                return { result: rows}
+            }
+            
 
             // TODO https://surrealdb.com/docs/surrealql/statements/select
             // needs more keywords implemented.
@@ -187,7 +197,7 @@ export class SurrealDBTS {
 
             let data: any = {};
 
-            
+
 
             // CREATE @targets CONTENT
             if (statement[2] === 'CONTENT') {
@@ -246,7 +256,7 @@ export class SurrealDBTS {
             }
 
             if (statement[2] === 'SET') {
-                
+
                 const targets = statement[1];
                 const { id, tb } = parseIdFromThing(targets)
                 const newdata = await extractSetData(targets, query);
@@ -262,8 +272,8 @@ export class SurrealDBTS {
 
 
 
-                return { result: updatedrows};
-                
+                return { result: updatedrows };
+
             }
         }
 
@@ -271,7 +281,7 @@ export class SurrealDBTS {
             throw Error('RELATE not implemented yet.');
         }
 
-        
+
         if (statement[0] === 'DELETE') {
 
             const table = await this.kv.getTable(this.session, statement[1]);
@@ -382,7 +392,7 @@ export class SurrealDBTS {
             logEvent("error", "process.ts::define::field")
         }
 
- 
+
 
         // https://surrealdb.com/docs/surrealql/statements/remove
         if (statement[0] === 'REMOVE') {
@@ -440,7 +450,7 @@ export class SurrealDBTS {
             }
         }
 
-        
+
 
 
 

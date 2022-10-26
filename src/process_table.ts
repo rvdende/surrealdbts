@@ -201,6 +201,11 @@ export const extractSetData = async (targets: string, query: string) => {
     }
 
     const parseValue = (valIn: string) => {
+
+        if (valIn.startsWith("[") && valIn.endsWith("]")) {
+            return valIn.slice(1,-1).split(",").map(e => e.trim());
+        }
+
         if (valIn.startsWith("\'") && valIn.endsWith("\'")) {
             return valIn.slice(1, -1);
         }
@@ -227,6 +232,14 @@ export const extractSetData = async (targets: string, query: string) => {
         }
 
         if (c === ")") {
+            ignoreCommas = false;
+        }
+
+        if (c === "[") {
+            ignoreCommas = true;
+        }
+
+        if (c === "]") {
             ignoreCommas = false;
         }
 

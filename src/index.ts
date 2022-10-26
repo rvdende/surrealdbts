@@ -26,7 +26,7 @@ export const version = "0.0.1";
 export const versiondate = "2022-10-03T15:29:28.716Z"
 
 export * from './interfaces/index.ts'
-
+export * from './surrealdbts.ts'
 
 // export let kv = new KV();
 
